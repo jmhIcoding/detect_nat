@@ -87,9 +87,13 @@ vector< _packet> BaseTool::getNextPacket(pcap_t * pt )
 	const u_char *pktdata = pcap_next(pt, &pktheader);
 	if (pktdata != NULL)
 	{
+		if (this->start_timestamp == -1)
+		{
+			this->start_timestamp = pktheader.ts.tv_sec;
+		}
 		_packet packet;
 		packet.len = pktheader.caplen;
-		packet.timestamp = pktheader.ts.tv_sec;
+		packet.timestamp = abs(pktheader.ts.tv_sec-this->start_timestamp);
 		packet.data = (unsigned char *)malloc(sizeof(unsigned char)*packet.len);
 		memcpy(packet.data, pktdata, packet.len);
 		rst.push_back(packet);

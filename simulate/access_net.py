@@ -6,6 +6,7 @@ urllist=[
     "http://www.baidu.com",
     "http://www.qq.com"
 ]
+[["ipid","timestamp"],]
 while True:
     i =random.randint(0,len(urllist)-1)
     req=requests.get(urllist[i])

@@ -73,7 +73,7 @@ public:
 private:
 	pcap_t *pcapt;
 	char errBuf[PCAP_ERRBUF_SIZE];
-
+	long start_timestamp=-1;
 };
 /* 4 bytes IP address */
 typedef struct ip_address{

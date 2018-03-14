@@ -5,10 +5,12 @@
 #include "EntroyEstimation.h"
 #include "Controller.h"
 #include <inaddr.h>
+#include <string.h>
 int main()
 {
-	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_14_30_19_40_172_16_30_34_windows_7.pcap");
-	
+	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_08_30_09_46_172_16_30_34_windows_7.pcap");
+	char *filename = "data.file";
+	FILE *fp = fopen(filename, "w");
 	auto rst =pkt.get_host_count_data(NULL, inet_addr("172.16.30.34"));
 	for (int i = 0; i < rst.size(); i++)
 	{
@@ -17,9 +19,30 @@ int main()
 		{
 			printf("\n\n new ip id sequence   \n");
 		}
+
 	}
 	vector< vector<_ipid_build> > ipid_sequences = pkt.construct_ipid_sequence(rst);
+
 	printf("size: %d \n", ipid_sequences.size());
+	fprintf(fp, "[");
+	for (int i = 0; i < ipid_sequences.size(); i++)
+	{
+		fprintf(fp, "[");
+		for (int j = 0; j < ipid_sequences[i].size(); j++)
+		{
+			fprintf(fp, "[%d,%d]", ipid_sequences[i][j].ipid, ipid_sequences[i][j].timestamp);
+			if (j < (ipid_sequences[i].size() - 1))
+			{
+				fprintf(fp, ",");
+			}
+		}
+		fprintf(fp, "]");
+		if (i < (ipid_sequences.size() - 1))
+		{
+			fprintf(fp, ",");
+		}
+	}
+	fprintf(fp, "]");
 	//printf("new ip ");
 	//BaseTool pkt2("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_08_30_11_31_192_168_8_153_MacOS.pcap");
 
