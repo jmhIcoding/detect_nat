@@ -8,19 +8,10 @@
 #include <string.h>
 int main()
 {
-	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_08_30_09_46_172_16_30_34_windows_7.pcap");
+	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_09_50_11_00_172_16_30_34_windows_7.pcap");
 	char *filename = "data.file";
 	FILE *fp = fopen(filename, "w");
 	auto rst =pkt.get_host_count_data(NULL, inet_addr("172.16.30.34"));
-	for (int i = 0; i < rst.size(); i++)
-	{
-		//printf("%d:%X:%X  ", rst[i].ipid,rst[i].tcpseq,rst[i].timestamp);
-		if (i<(rst.size()-1)&&(rst[i + 1].ipid - rst[i].ipid)>2)
-		{
-			printf("\n\n new ip id sequence   \n");
-		}
-
-	}
 	vector< vector<_ipid_build> > ipid_sequences = pkt.construct_ipid_sequence(rst);
 
 	printf("size: %d \n", ipid_sequences.size());
@@ -43,6 +34,7 @@ int main()
 		}
 	}
 	fprintf(fp, "]");
+	fclose(fp);
 	//printf("new ip ");
 	//BaseTool pkt2("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_08_30_11_31_192_168_8_153_MacOS.pcap");
 

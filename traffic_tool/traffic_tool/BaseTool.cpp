@@ -207,10 +207,10 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 按照论文:timelimt=5(秒),gaplimt=64
 */
 {	
-	long timelimit = 20;
+	long timelimit = 300;
 	u_short gaplimit = 64;
 	long MemberCri = 5;
-	long MemberCri2 = 100;
+	long MemberCri2 = 50;
 
 	vector< vector<_ipid_build> >ipid_sequences;
 	while (!ipid_sequences.empty())
@@ -224,7 +224,11 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 		bool flag = 0;
 		for (int j = 0; j < ipid_sequences.size(); j++)
 		{
-			auto ipid_diff = ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid;
+			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid)%32768;
+			while (ipid_diff<0)
+			{
+				ipid_diff += 32768;
+			}
 			auto timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
 			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
 			{
