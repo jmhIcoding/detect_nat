@@ -8,11 +8,18 @@
 #include <string.h>
 int main()
 {
-	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_09_50_11_00_172_16_30_34_windows_7.pcap");
+	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\03_13_12_30_14_10_172_16_30_34_windows_7.pcap");
+	auto prst = pkt.cluster_raw_pakcets();
+	for (map < unsigned int, vector< _packet_chunk_>> ::iterator p = prst->begin(); p != prst->end(); p++)
+	{
+		in_addr addr;
+		addr.S_un.S_addr =(unsigned int (p->first));
+		printf("%0.16s packets:%d \n",inet_ntoa(addr),(p->second).size());
+	}
 	char *filename = "data.file";
 	FILE *fp = fopen(filename, "w");
-	auto rst =pkt.get_host_count_data(NULL, inet_addr("172.16.30.34"));
-	vector< vector<_ipid_build> > ipid_sequences = pkt.construct_ipid_sequence(rst);
+	auto rst =pkt.get_host_count_data(NULL, inet_addr("192.168.199.122"));
+	vector< vector<_ipid_build> > ipid_sequences = pkt.construct_ipid_sequence(rst,60*15);
 
 	printf("size: %d \n", ipid_sequences.size());
 	fprintf(fp, "[");
