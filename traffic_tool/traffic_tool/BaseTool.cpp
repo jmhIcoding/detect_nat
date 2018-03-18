@@ -194,7 +194,7 @@ vector<_packet_host_cont>  BaseTool::get_host_count_data(pcap_t * pt, int ipaddr
 	}
 	return rst;
 }
-vector< vector<_ipid_build> > BaseTool::construct_ipid_sequence(vector<_packet_host_cont>& _host_count)
+vector< vector<_ipid_build> > BaseTool::construct_ipid_sequence(vector<_packet_host_cont>& _host_count,int timelens)
 /*
 根据_host_count里面记录的ipid序列,重构ipid_sequence,将ipid数据分成若干个不同的序列。
 方法参照论文: counting nated hosts by observing tcp ip field behaviors.
@@ -207,10 +207,10 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 按照论文:timelimt=5(秒),gaplimt=64
 */
 {	
-	long timelimit = 300;
-	u_short gaplimit = 64;
+	long timelimit = 20;
+	u_short gaplimit = 128;
 	long MemberCri = 5;
-	long MemberCri2 = 50;
+	long MemberCri2 = 20;
 
 	vector< vector<_ipid_build> >ipid_sequences;
 	while (!ipid_sequences.empty())
@@ -221,13 +221,17 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 	{
 		u_short ipid = _host_count[i].ipid;
 		long timestamp = _host_count[i].timestamp;
+		if (timelens>0 && timestamp > timelens)
+		{
+			break;
+		}
 		bool flag = 0;
 		for (int j = 0; j < ipid_sequences.size(); j++)
 		{
-			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid)%32768;
+			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid)%65536;
 			while (ipid_diff<0)
 			{
-				ipid_diff += 32768;
+				ipid_diff += 65536;
 			}
 			auto timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
 			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
@@ -257,6 +261,7 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 			rst.push_back(ipid_sequences[i]);
 		}
 	}
+	
 	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
 	vector < vector<_ipid_build> > rst2;
 	rst2.push_back(rst[0]);
@@ -333,7 +338,12 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 			 {
 				 rst2.push_back(rst[i]);
 			 }
+		if (rst2.size() == 47)
+		{
+			printf("debug now\n");
+		}
 	}
+	
 	//合并之后,再把那些太短的删除掉
 	while (true)
 	{
@@ -372,6 +382,7 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 			{
 				rst2.erase(p);
 				flag = 1;
+				break;
 			}
 		}
 		if (flag == 0)
@@ -380,4 +391,133 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 		}
 	}
 	return rst2;
+}
+map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap_t *pt)
+//对原始报文,基于源ip进行收集.
+{
+	map<unsigned int, vector< _packet_chunk_> >* prst = new map<unsigned int, vector< _packet_chunk_> >;
+	while (!prst->empty())
+		//清空
+	{
+		prst->clear();
+	}
+	if (pt == NULL)
+	{
+		pt = this->pcapt;
+	}
+	while (true)
+	{
+		vector<_packet> pkt = this->getNextPacket(pt);
+		if (pkt.size())
+		{
+			_packet_chunk_ packet_info;
+
+			packet_info.timestamp = pkt[0].timestamp;
+			int ip_flag = (*(u_short*)(pkt[0].data + 12));
+			if (ip_flag != 0x0008)//非ip协议
+			{
+				continue;
+			}
+			ip_header *ih;
+			udp_header *udp;
+			tcp_header *tcp;
+			u_int ip_len;
+			ih = (ip_header*)(pkt[0].data + 14);//把以太网头偏移
+			/*
+			把广播报文过滤
+			*/
+			if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
+			{
+				continue;
+			}
+			if ((ih->daddr & 0x00000ff) || (ih->saddr & 0x00000ff))
+				//内部的广播报文
+			{
+				continue;
+			}
+			little_endian2big_endian((u_char*)&(ih->identification), 2, (u_char*)&(packet_info.ipid));
+			packet_info.ttl = ih->ttl;
+			packet_info.byte_length = pkt[0].len - 14;
+			if (ih->proto == 6)
+				//tcp协议,提取tcp sequence
+			{
+				packet_info.utility_flag |= TCPFLAG;
+				tcp = (tcp_header*)(pkt[0].data + 14 + 20);
+				unsigned short srcport;
+				unsigned short dstport;
+				little_endian2big_endian((u_char*)&(tcp->sequence), 4, (u_char*)&(packet_info.tcp_sequecnce));
+				
+				little_endian2big_endian((u_char*)&(tcp->sport), 2, (u_char*)&(srcport));
+
+				little_endian2big_endian((u_char*)&(tcp->dport), 2, (u_char*)&(dstport));
+				packet_info.srcport = srcport;
+				if (srcport == 80 || srcport == 443 || dstport == 80 || srcport == 443)
+					//http 报文
+				{
+					packet_info.utility_flag |= HTTPFLAG;
+				}
+				if (tcp->flag & 0x01)
+					//fin 报文
+				{
+					packet_info.utility_flag |= FINFLAG;
+				}
+				if (tcp->flag & 0x02)
+					//SYN报文
+				{
+					packet_info.utility_flag |= SYNFLAG;
+				}
+				if (tcp->flag & 0x04)
+					//reset 报文
+				{
+					packet_info.utility_flag |= RSTFLAG;
+				}
+			}
+			else if (ih->proto==17)
+			//udp协议
+			{
+				packet_info.utility_flag |= UDPFLAG;
+				udp = (udp_header*)(pkt[0].data + 14 + 20);
+				unsigned short srcport, dstport;
+				little_endian2big_endian((u_char*)&(udp->sport), 2, (u_char*)&(srcport));
+				little_endian2big_endian((u_char*)&(udp->dport), 2, (u_char*)&(dstport));
+				if (srcport == 53 || dstport == 53)
+				{
+					packet_info.utility_flag |= DNSFLAG;
+				}
+				if (srcport == 8000 || dstport == 8000)
+					
+				{
+					unsigned char * pdata = pkt[0].data + 14 + 20 + sizeof(udp_header);
+					if (pdata[0] == 0x02)
+						//oicq协议
+					{
+						little_endian2big_endian(pdata +6,sizeof(unsigned int), (unsigned char *)&packet_info.oicq_number)  ;
+					}
+				}
+			}
+			
+			//以上就已经整理好了
+			packet_info.dstip = ih->daddr;
+			//对src ip 来说,这个包是出去的包
+			packet_info.flag = 1;
+			if (prst->find(ih->saddr) != prst->end())
+				//已经找到了,则把数据插入
+			{
+				(*prst)[ih->saddr].push_back(packet_info);
+			}
+			else
+			{
+				(*prst)[ih->saddr].push_back(packet_info);
+			}
+			packet_info.dstip = ih->saddr;
+			packet_info.flag = 0;
+			(*prst)[ih->daddr].push_back(packet_info);
+		}
+		else
+		{
+			break;
+		}
+
+	}
+	return prst;
 }

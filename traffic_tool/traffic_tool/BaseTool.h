@@ -8,6 +8,7 @@
 #include <vector>
 #include <string.h>
 #include <malloc.h>
+#include <map>
 using namespace std;
 struct _ipid_build
 	//建立ipid_sequences使用
@@ -28,6 +29,46 @@ struct _packet_host_cont
 	u_int tcpseq=0;
 	u_short srcport=0;
 };
+struct _packet_chunk_
+	//基于源ip地址聚合后,数据包的结构.
+{
+	unsigned char flag;//数据包标示位,主要用于标示改数据包是数据包是出,还是入数据包. 0:入 1:出
+	unsigned int byte_length;//IP数据包的长度,包括头
+	unsigned char utility_flag;//用于标示该数据包是udp,tcp,http,dns,oicq
+	/*
+	utility_flag:
+	(高位)	bit				含义
+	|*|*|*|*|*|*|*|*|
+	|1|*|*|*|*|*|*|*| 		tcp
+	|*|1|*|*|*|*|*|*|		udp
+	|*|*|1|*|*|*|*|*|		http
+	|*|*|*|1|*|*|*|*|		dns
+	|*|*|*|*|1|*|*|*|		oicq
+	|*|*|*|*|*|1|*|*|		FIN
+	|*|*|*|*|*|*|1|*|		SYN
+	|*|*|*|*|*|*|*|1|		RST
+	*/
+	unsigned int timestamp;//时间戳
+	unsigned short ipid;//ipid字段
+	unsigned int tcp_sequecnce;//tcp 序列号
+	unsigned short srcport;//tcp 的源端口,注意,udp的源端口不使用.
+	unsigned int dstip;//目的ip地址
+	unsigned char ttl;//报文的ttl字段;
+	unsigned int oicq_number;//qq号,需要将-1去掉
+	_packet_chunk_():
+		flag(0xFF), byte_length(0), utility_flag(0), timestamp(0), ipid(0), tcp_sequecnce(0), dstip(0), srcport(0), ttl(0), oicq_number(-1)
+	{
+		;
+	}
+};
+#define TCPFLAG 0x80
+#define UDPFLAG 0x40
+#define HTTPFLAG 0x20
+#define DNSFLAG 0x10
+#define OICQFLAG 0x08
+#define FINFLAG 0x04
+#define SYNFLAG 0x02
+#define RSTFLAG 0x01
 class BaseTool
 {
 public:
@@ -54,7 +95,7 @@ public:
 			dstbuf[len - 1 - i] = srcbuf[i];
 		}
 	}
-	static vector< vector<_ipid_build> > construct_ipid_sequence(vector<_packet_host_cont>& _host_count);
+	static vector< vector<_ipid_build> > construct_ipid_sequence(vector<_packet_host_cont>& _host_count,int timelen=0);
 	//根据_host_count里面记录的ipid序列,重构ipid_sequence,将ipid数据分成若干个不同的序列。
 	static float line_overlap(float l1, float r1, float l2, float r2)
 		//重叠的长度,需要运算两次取最大的重叠
@@ -70,10 +111,13 @@ public:
 		}
 		return -1;
 	}
+	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets(pcap_t *pt=NULL);//对原始报文,基于源ip进行收集.
 private:
 	pcap_t *pcapt;
 	char errBuf[PCAP_ERRBUF_SIZE];
 	long start_timestamp=-1;
+	map<unsigned int, vector< _packet_chunk_>> packet_chunk;
+	//ip-> _packet_chunk的序列
 };
 /* 4 bytes IP address */
 typedef struct ip_address{
