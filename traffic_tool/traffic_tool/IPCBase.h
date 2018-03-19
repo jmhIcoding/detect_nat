@@ -4,10 +4,14 @@
 #include <time.h>
 #include "BaseTool.h"
 using namespace std;
+const char * MAPFILENAME = "ipcCapture.data";
+const char * tag_name = "ipcShareMemory";
+const int max_map_size = 1024 * 1024 * 256;//一次性最多交换的数据量为256MB
+const int BufferSize = 1024;
 class IPC_MemoryMap
 {
 public:
-	IPC_MemoryMap(char *mapFile_name=MAPFILENAME)
+	IPC_MemoryMap(const char *mapFile_name=MAPFILENAME)
 	{
 		void * pfile = CreateFile(LPCSTR(mapFile_name),GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 		void * fmaping = CreateFileMapping(pfile, NULL, PAGE_READWRITE, 0, max_map_size, LPCSTR(tag_name));
