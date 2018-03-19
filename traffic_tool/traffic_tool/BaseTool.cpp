@@ -165,6 +165,19 @@ vector<_packet_host_cont>  BaseTool::get_host_count_data(pcap_t * pt, int ipaddr
 			{
 				continue;
 			}
+			/*
+			把广播报文过滤
+			*/
+			if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
+			{
+				continue;
+			}
+
+			if (ih->daddr & 0xff000000 == 0xff000000 || ih->saddr & 0xff000000 == 0xff000000)
+				//内部的广播报文
+			{
+				continue;
+			}
 			//count_info.ipid = ih->identification;//ip ID的赋值
 			little_endian2big_endian((u_char*)&(ih->identification), 2, (u_char*)&(count_info.ipid));
 
@@ -210,7 +223,7 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 	long timelimit = 20;
 	u_short gaplimit = 128;
 	long MemberCri = 5;
-	long MemberCri2 = 20;
+	long MemberCri2 = 50;
 
 	vector< vector<_ipid_build> >ipid_sequences;
 	while (!ipid_sequences.empty())
@@ -395,6 +408,7 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap_t *pt)
 //对原始报文,基于源ip进行收集.
 {
+	static unsigned int relative_id=0;
 	map<unsigned int, vector< _packet_chunk_> >* prst = new map<unsigned int, vector< _packet_chunk_> >;
 	while (!prst->empty())
 		//清空
@@ -408,6 +422,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 	while (true)
 	{
 		vector<_packet> pkt = this->getNextPacket(pt);
+		relative_id = (relative_id + 1) % 4294967296;
 		if (pkt.size())
 		{
 			_packet_chunk_ packet_info;
@@ -430,7 +445,8 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			{
 				continue;
 			}
-			if ((ih->daddr & 0x00000ff) || (ih->saddr & 0x00000ff))
+	
+			if (ih->daddr&0xff000000==0xff000000||ih->saddr&0xff000000==0xff000000)
 				//内部的广播报文
 			{
 				continue;
@@ -438,6 +454,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			little_endian2big_endian((u_char*)&(ih->identification), 2, (u_char*)&(packet_info.ipid));
 			packet_info.ttl = ih->ttl;
 			packet_info.byte_length = pkt[0].len - 14;
+			packet_info.relative_id = relative_id;
 			if (ih->proto == 6)
 				//tcp协议,提取tcp sequence
 			{
@@ -520,4 +537,637 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 
 	}
 	return prst;
+}
+vector<_ipid_build> BaseTool::get_ipid_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+//给定源ip,提取其中的ipid原始数据。过滤其中的出口报文
+{
+	vector<_ipid_build> ipids;
+	vector<_packet_chunk_>& packets = (*p_packets)[srcip];
+	for (int i = 0; i < packets.size(); i++)
+	{
+		if (packets[i].flag == 1)
+			//出去的数据包
+		{
+			_ipid_build ipid_info;
+			ipid_info.ipid = packets[i].ipid;
+			ipid_info.relative_id = packets[i].relative_id;
+			ipid_info.timestamp = packets[i].timestamp;
+			ipids.push_back(ipid_info);
+		}
+	}
+	return ipids;
+}
+vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+//给定源ip,提取其中的tcp_seq原始数据。过滤其中的出口报文
+{
+	vector<_tcp_sequence_build> tcp_seqs;
+	vector<_packet_chunk_> & packets = (*p_packets)[srcip];
+	for (int i = 0; i < packets.size(); i++)
+	{
+		if (packets[i].flag == 1)
+			//出去的数据包
+		{
+			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG)
+			{
+				_tcp_sequence_build sequence;
+				sequence.relative_id = packets[i].relative_id;
+				sequence.tcp_sequence = packets[i].tcp_sequecnce;
+				sequence.timestamp = packets[i].timestamp;
+				tcp_seqs.push_back(sequence);
+			}
+		}
+	}
+	return tcp_seqs;
+}
+vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+//给定源ip,提取其中的tcp_srcport原始数据。过滤其中的出口报文
+{
+	vector<_tcp_srcport_build> tcp_srcports;
+	vector<_packet_chunk_> & packets = (*p_packets)[srcip];
+	for (int i = 0; i < packets.size(); i++)
+	{
+		if (packets[i].flag == 1)
+		{
+			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG)
+			{
+				_tcp_srcport_build srcport;
+				srcport.relative_id = packets[i].relative_id;
+				srcport.srcport = packets[i].srcport;
+				srcport.timestamp = packets[i].timestamp;
+				tcp_srcports.push_back(srcport);
+			}
+		}
+	}
+	return tcp_srcports;
+}
+vector < vector< _ipid_build > >BaseTool::construct_ipid_sequences(const vector<_ipid_build> & ipid_data)
+//根据ipid_build原始数据,构建ipid序列
+{
+	long timelimit = 20;
+	u_short gaplimit = 128;
+	long MemberCri = 10;
+	long MemberCri2 = 100;
+
+	vector< vector<_ipid_build> >ipid_sequences;
+	while (!ipid_sequences.empty())
+	{
+		ipid_sequences.pop_back();
+	}
+	for (int i = 0; i < ipid_data.size(); i++)
+	{
+		u_short ipid = ipid_data[i].ipid;
+		long timestamp = ipid_data[i].timestamp;
+		unsigned int relative_id = ipid_data[i].relative_id;
+		bool flag = 0;
+		for (int j = 0; j < ipid_sequences.size(); j++)
+		{
+			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid) % 65536;
+			while (ipid_diff<0)
+			{
+				ipid_diff += 65536;
+			}
+			auto timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
+			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
+			{
+				ipid_sequences[j].push_back({ ipid, timestamp ,relative_id});
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			vector<_ipid_build> *ipid_sequence = new vector< _ipid_build>;
+			(*ipid_sequence).push_back({ ipid, timestamp });
+			ipid_sequences.push_back(*ipid_sequence);
+		}
+	}
+	vector< vector<_ipid_build> > rst;
+	for (int i = 0; i < ipid_sequences.size(); i++)
+		//过滤太短的
+	{
+		if (ipid_sequences[i].size() >= MemberCri)
+		{
+			rst.push_back(ipid_sequences[i]);
+		}
+	}
+
+	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
+	vector < vector<_ipid_build> > rst2;
+	rst2.push_back(rst[0]);
+	for (int i = 1; i < rst.size(); i++)
+	{
+		bool flag = 0;
+		for (int j = 0; j < rst2.size(); j++)
+		{
+			float l1 = rst[i][0].ipid;
+			float r1 = rst[i][rst[i].size() - 1].ipid;
+			float l2 = rst2[j][0].ipid;
+			float r2 = rst2[j][rst2[j].size() - 1].ipid;
+			float overlapping1 = max( line_overlap(l1, r1, l2, r2), line_overlap(l2, r2, l1, r1));
+			l1 = rst[i][0].timestamp;
+			r1 = rst[i][rst[i].size() - 1].timestamp;
+			l2 = rst2[j][0].timestamp;
+			r2 = rst2[j][rst2[j].size() - 1].timestamp;
+			float overlapping2 = max(line_overlap(l1, r1, l2, r2), line_overlap(l2, r2, l1, r1));
+			if (overlapping1 >= gaplimit*0.8 && overlapping2 >= timelimit*0.8)
+				//合并
+			{
+				vector< _ipid_build> ipid_sequence;
+				int ii = 0, jj = 0;
+				while (true)
+				{
+					if (rst[i][ii].ipid <= rst2[j][jj].ipid)
+					{
+						if (ipid_sequence.empty() || rst[i][ii].ipid != ipid_sequence[ipid_sequence.size() - 1].ipid)
+						{
+							ipid_sequence.push_back(rst[i][ii]);
+						}
+						ii++;
+					}
+					else
+					{
+						if (ipid_sequence.empty() || rst2[j][jj].ipid != ipid_sequence[ipid_sequence.size() - 1].ipid)
+						{
+							ipid_sequence.push_back(rst2[j][jj]);
+						}
+						jj++;
+					}
+					if (ii >= rst[i].size())
+					{
+						break;
+					}
+					if (jj >= rst2[j].size())
+					{
+						break;
+					}
+				}
+				while (ipid_sequence.empty() || ii < rst[i].size())
+				{
+					if (rst[i][ii].ipid != ipid_sequence[ipid_sequence.size() - 1].ipid)
+					{
+						ipid_sequence.push_back(rst[i][ii]);
+					}
+					ii++;
+				}
+				while (ipid_sequence.empty() || jj < rst2[j].size())
+				{
+					if (rst2[j][jj].ipid != ipid_sequence[ipid_sequence.size() - 1].ipid)
+					{
+						ipid_sequence.push_back(rst2[j][jj]);
+					}
+					jj++;
+				}
+				rst2[j] = ipid_sequence;
+				flag = 1;
+				break;
+			}
+
+		}
+		if (flag == 0)
+		{
+			rst2.push_back(rst[i]);
+		}
+	}
+
+	//合并之后,再把那些太短的删除掉
+	while (true)
+	{
+
+		bool flag = 0;
+		for (vector< vector<_ipid_build> >::iterator p = rst2.begin(); p != rst2.end(); p++)
+		{
+			if (p->size() < MemberCri2)
+			{
+				rst2.erase(p);
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			break;
+		}
+	}
+	//再把那些out_of_order占比太多的去掉
+	while (true)
+	{
+		bool flag = 0;
+		for (vector< vector<_ipid_build> >::iterator p = rst2.begin(); p != rst2.end(); p++)
+		{
+			int out_of_order_count = 0;
+			for (int j = 0; j < p->size() - 1; j++)
+			{
+				auto diff = ((*p)[j + 1].ipid - (*p)[j].ipid);
+				if (diff != 0 && diff != 1)
+				{
+					out_of_order_count++;
+				}
+			}
+			if (out_of_order_count>p->size()*0.5)
+			{
+				rst2.erase(p);
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			break;
+		}
+	}
+	return rst2;
+}
+
+vector < vector< _tcp_sequence_build > >BaseTool::construct_tcp_sequences(vector<_tcp_sequence_build> & tcp_seq_data)
+//根据tcp_seq原始数据,构建tcp_seq序列
+{
+	long timelimit = 100;
+	u_short gaplimit = 1460;
+	long MemberCri = 5;
+	long MemberCri2 = 100;
+
+	vector< vector<_tcp_sequence_build> >tcpseq_sequences;
+	while (!tcpseq_sequences.empty())
+	{
+		tcpseq_sequences.pop_back();
+	}
+	for (int i = 0; i < tcp_seq_data.size(); i++)
+	{
+		u_short tcp_seq = tcp_seq_data[i].tcp_sequence;
+		long timestamp = tcp_seq_data[i].timestamp;
+		unsigned int relative_id = tcp_seq_data[i].relative_id;
+		bool flag = 0;
+		for (int j = 0; j < tcpseq_sequences.size(); j++)
+		{
+			auto ipid_diff = (tcp_seq - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].tcp_sequence) % 65536;
+			while (ipid_diff<0)
+			{
+				ipid_diff += 65536;
+			}
+			auto timestamp_diff = timestamp - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].timestamp;
+			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
+			{
+				tcpseq_sequences[j].push_back({tcp_seq,timestamp,relative_id});
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			vector<_tcp_sequence_build> *tcp_seq_sequence = new vector< _tcp_sequence_build>;
+			(*tcp_seq_sequence).push_back({ tcp_seq, timestamp,relative_id });
+			tcpseq_sequences.push_back(*tcp_seq_sequence);
+		}
+	}
+	vector< vector<_tcp_sequence_build> > rst;
+	for (int i = 0; i < tcpseq_sequences.size(); i++)
+		//过滤太短的
+	{
+		if (tcpseq_sequences[i].size() >= MemberCri)
+		{
+			rst.push_back(tcpseq_sequences[i]);
+		}
+	}
+
+	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
+	vector < vector<_tcp_sequence_build> > rst2;
+	rst2.push_back(rst[0]);
+	for (int i = 1; i < rst.size(); i++)
+	{
+		bool flag = 0;
+		for (int j = 0; j < rst2.size(); j++)
+		{
+			float l1 = rst[i][0].tcp_sequence;
+			float r1 = rst[i][rst[i].size() - 1].tcp_sequence;
+			float l2 = rst2[j][0].tcp_sequence;
+			float r2 = rst2[j][rst2[j].size() - 1].tcp_sequence;
+			float overlapping1 = max(line_overlap(l1, r1, l2, r2), line_overlap(l2, r2, l1, r1));
+			l1 = rst[i][0].timestamp;
+			r1 = rst[i][rst[i].size() - 1].timestamp;
+			l2 = rst2[j][0].timestamp;
+			r2 = rst2[j][rst2[j].size() - 1].timestamp;
+			float overlapping2 = max(line_overlap(l1, r1, l2, r2), line_overlap(l2, r2, l1, r1));
+			if (overlapping1 >= gaplimit*0.8 && overlapping2 >= timelimit*0.8)
+				//合并
+			{
+				vector< _tcp_sequence_build> ipid_sequence;
+				int ii = 0, jj = 0;
+				while (true)
+				{
+					if (rst[i][ii].tcp_sequence <= rst2[j][jj].tcp_sequence)
+					{
+						if (ipid_sequence.empty() || rst[i][ii].tcp_sequence != ipid_sequence[ipid_sequence.size() - 1].tcp_sequence)
+						{
+							ipid_sequence.push_back(rst[i][ii]);
+						}
+						ii++;
+					}
+					else
+					{
+						if (ipid_sequence.empty() || rst2[j][jj].tcp_sequence != ipid_sequence[ipid_sequence.size() - 1].tcp_sequence)
+						{
+							ipid_sequence.push_back(rst2[j][jj]);
+						}
+						jj++;
+					}
+					if (ii >= rst[i].size())
+					{
+						break;
+					}
+					if (jj >= rst2[j].size())
+					{
+						break;
+					}
+				}
+				while (ipid_sequence.empty() || ii < rst[i].size())
+				{
+					if (rst[i][ii].tcp_sequence != ipid_sequence[ipid_sequence.size() - 1].tcp_sequence)
+					{
+						ipid_sequence.push_back(rst[i][ii]);
+					}
+					ii++;
+				}
+				while (ipid_sequence.empty() || jj < rst2[j].size())
+				{
+					if (rst2[j][jj].tcp_sequence != ipid_sequence[ipid_sequence.size() - 1].tcp_sequence)
+					{
+						ipid_sequence.push_back(rst2[j][jj]);
+					}
+					jj++;
+				}
+				rst2[j] = ipid_sequence;
+				flag = 1;
+				break;
+			}
+
+		}
+		if (flag == 0)
+		{
+			rst2.push_back(rst[i]);
+		}
+	}
+
+	//合并之后,再把那些太短的删除掉
+	while (true)
+	{
+
+		bool flag = 0;
+		for (vector< vector< _tcp_sequence_build > >::iterator p = rst2.begin(); p != rst2.end(); p++)
+		{
+			if (p->size() < MemberCri2)
+			{
+				rst2.erase(p);
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			break;
+		}
+	}
+	//再把那些out_of_order占比太多的去掉
+	while (true)
+	{
+		bool flag = 0;
+		for (vector< vector< _tcp_sequence_build> >::iterator p = rst2.begin(); p != rst2.end(); p++)
+		{
+			int out_of_order_count = 0;
+			for (int j = 0; j < p->size() - 1; j++)
+			{
+				auto diff = ((*p)[j + 1].tcp_sequence - (*p)[j].tcp_sequence);
+				if (diff != 0 && diff != 1)
+				{
+					out_of_order_count++;
+				}
+			}
+			if (out_of_order_count>p->size()*0.5)
+			{
+				rst2.erase(p);
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+		{
+			break;
+		}
+	}
+	return rst2;
+}
+
+
+set<int> set_interact(const set<int>& s1, const set<int> & s2)
+{
+	set<int> rst_set;
+	rst_set.clear();
+	set<int>::iterator it1 = s1.begin();
+	set<int>::iterator it2 = s2.begin();
+	for (; it1 != s1.end() && it2 != s2.end();)
+	{
+		if (*it1 < *it2)
+		{
+			it1++;
+		}
+		else if (*it1>*it2)
+		{
+			it2++;
+		}
+		else
+		{
+			rst_set.insert(*it1);
+			it1++, it2++;
+		}
+	}
+	return rst_set;
+}
+
+vector< vector<int> >BaseTool::associate_ipidseq_tcpseqs(const vector< vector< _ipid_build>> & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences)
+//将ipid序列和tcp_seq序列关联起来.关联的方法参见文献 counting nated hosts by observing tcp ip field behavior.
+/*
+关联的标准:
+rst[i][j]=k
+表示 tcp_sequences[k]中有超过50%的元素是与ipid_sequences[i]的某个ipid 来自同一个数据报
+*/
+{
+	vector< vector<int> > associate_rst;
+	associate_rst.clear();
+	vector< set<int> > ipid_sequences_relative_id_set;//ipid_sequences的相对id集合
+	vector< set<int>> tcp_sequences_relateive_id_set;//tcp_sequences的相对id集合
+	for (int i = 0; i < ipid_sequences.size(); i++)
+	{
+		associate_rst.push_back(vector<int>());
+		ipid_sequences_relative_id_set.push_back(set<int>());
+		for (int j = 0; j < ipid_sequences[i].size(); j++)
+		{
+			ipid_sequences_relative_id_set[i].insert(ipid_sequences[i][j].relative_id);
+		}
+	}
+	for (int i = 0; i < tcp_sequences.size(); i++)
+	{
+		tcp_sequences_relateive_id_set.push_back(set<int>());
+		for (int j = 0; j < tcp_sequences[i].size(); j++)
+		{
+			tcp_sequences_relateive_id_set[i].insert(tcp_sequences[i][j].relative_id);
+		}
+	}
+	for (int i = 0; i < tcp_sequences.size(); i++)
+	{
+		for (int j = 0; j < ipid_sequences.size(); j++)
+		{
+			auto interact = set_interact(tcp_sequences_relateive_id_set[i], ipid_sequences_relative_id_set[j]);
+			if (interact.size() >= tcp_sequences_relateive_id_set[i].size()*0.5)
+			{
+				associate_rst[j].push_back(i);
+			}
+		}
+	}
+	return associate_rst;
+}
+
+vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data)
+{
+	long timelimit = 30;
+	u_short gaplimit = 64;
+	long MemberCri = 5;
+	long MemberCri2 = 20;
+
+	vector< vector<_tcp_srcport_build> >tcp_srcport_sequences;
+	while (!tcp_srcport_sequences.empty())
+	{
+		tcp_srcport_sequences.pop_back();
+	}
+	for (int i = 0; i < tcp_srcport_data.size(); i++)
+	{
+		u_short tcp_seq = tcp_srcport_data[i].srcport;
+		long timestamp = tcp_srcport_data[i].timestamp;
+		unsigned int relative_id = tcp_srcport_data[i].relative_id;
+		bool flag = 0;
+		int min_diff = 0x0fffffff;
+		int index = -1;
+		for (int j = 0; j < tcp_srcport_sequences.size(); j++)
+		{
+			for (int k = 0; k < tcp_srcport_sequences[j].size(); k++)
+			{
+
+				auto ipid_diff = (tcp_seq - tcp_srcport_sequences[j][k].srcport);
+				auto time_diff = (timestamp - tcp_srcport_sequences[j][k].timestamp);
+				if (time_diff >= 0 && ipid_diff>=0 && ipid_diff< min_diff && ipid_diff < gaplimit &&time_diff < timelimit)
+				{
+					min_diff = ipid_diff;
+					index = j;
+				}
+			}
+		}
+		if (index==-1)
+		{
+			vector<_tcp_srcport_build> *tcp_seq_sequence = new vector< _tcp_srcport_build>;
+			(*tcp_seq_sequence).push_back({ tcp_seq, timestamp, relative_id });
+			tcp_srcport_sequences.push_back(*tcp_seq_sequence);
+		}
+		else
+		{
+			tcp_srcport_sequences[index].push_back({ tcp_seq, timestamp, relative_id });
+		}
+	}
+	vector< vector<_tcp_srcport_build> > rst;
+	for (int i = 0; i < tcp_srcport_sequences.size(); i++)
+		//过滤太短的
+	{
+		if (tcp_srcport_sequences[i].size() >= MemberCri)
+		{
+			rst.push_back(tcp_srcport_sequences[i]);
+		}
+	}
+
+	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
+	vector < vector<_tcp_srcport_build> > rst2;
+	rst2.push_back(rst[0]);
+	for (int i = 1; i < rst.size(); i++)
+	{
+		bool flag = 0;
+		set<int> port_set;
+		set<int> time_set;
+		for (int j = 0; j < rst[i].size(); j++)
+		{
+			port_set.insert(rst[i][j].srcport);
+			time_set.insert(rst[i][j].timestamp);
+		}
+		for (int j = 0; j < rst2.size(); j++)
+		{
+			int port_interact = 0;
+			int time_interact = 0;
+			for (int k = 0; k < rst2[j].size(); k++)
+			{
+				if (port_set.find(rst2[j][k].srcport) != port_set.end())
+				{
+					port_interact++;
+				}
+				if (time_set.find(rst2[j][k].timestamp) != time_set.end())
+				{
+					time_interact++;
+				}
+			}
+
+			if (port_interact >= min(rst[i].size(), rst2[j].size())*0.5 && time_interact >= min(rst[i].size(), rst2[j].size())*0.5)
+				//合并
+			{
+				vector< _tcp_srcport_build> ipid_sequence;
+				int ii = 0, jj = 0;
+				while (true)
+				{
+					if (rst[i][ii].srcport <= rst2[j][jj].srcport)
+					{
+						if (ipid_sequence.empty() || rst[i][ii].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
+						{
+							ipid_sequence.push_back(rst[i][ii]);
+						}
+						ii++;
+					}
+					else
+					{
+						if (ipid_sequence.empty() || rst2[j][jj].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
+						{
+							ipid_sequence.push_back(rst2[j][jj]);
+						}
+						jj++;
+					}
+					if (ii >= rst[i].size())
+					{
+						break;
+					}
+					if (jj >= rst2[j].size())
+					{
+						break;
+					}
+				}
+				while (ipid_sequence.empty() || ii < rst[i].size())
+				{
+					if (rst[i][ii].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
+					{
+						ipid_sequence.push_back(rst[i][ii]);
+					}
+					ii++;
+				}
+				while (ipid_sequence.empty() || jj < rst2[j].size())
+				{
+					if (rst2[j][jj].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
+					{
+						ipid_sequence.push_back(rst2[j][jj]);
+					}
+					jj++;
+				}
+				rst2[j] = ipid_sequence;
+				flag = 1;
+				break;
+			}
+
+		}
+		if (flag == 0)
+		{
+			rst2.push_back(rst[i]);
+		}
+	}
+
+	return rst2;
 }

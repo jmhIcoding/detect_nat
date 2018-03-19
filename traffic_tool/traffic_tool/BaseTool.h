@@ -9,12 +9,29 @@
 #include <string.h>
 #include <malloc.h>
 #include <map>
+#include <set>
+#include "define.h"
 using namespace std;
 struct _ipid_build
 	//建立ipid_sequences使用
 {
 	u_short ipid;
 	long timestamp;
+	unsigned int relative_id;
+};
+struct _tcp_sequence_build
+	//tcp 序列号 序列的建立使用
+{
+	unsigned int tcp_sequence;
+	int timestamp;
+	unsigned int relative_id;
+};
+struct _tcp_srcport_build
+	//tcp 源端口 序列的建立使用
+{
+	unsigned short srcport;
+	int timestamp;
+	unsigned int relative_id;
 };
 struct _packet
 {
@@ -55,20 +72,14 @@ struct _packet_chunk_
 	unsigned int dstip;//目的ip地址
 	unsigned char ttl;//报文的ttl字段;
 	unsigned int oicq_number;//qq号,需要将-1去掉
+	unsigned int relative_id;//相对的id号,用于标示每一个独立的数据包,主要用于重构ipid,tcp sequence,tcp source port序列.
 	_packet_chunk_():
-		flag(0xFF), byte_length(0), utility_flag(0), timestamp(0), ipid(0), tcp_sequecnce(0), dstip(0), srcport(0), ttl(0), oicq_number(-1)
+		flag(0xFF), byte_length(0), utility_flag(0), timestamp(0), ipid(0), tcp_sequecnce(0), dstip(0), srcport(0), ttl(0), oicq_number(-1), relative_id(0)
 	{
 		;
 	}
 };
-#define TCPFLAG 0x80
-#define UDPFLAG 0x40
-#define HTTPFLAG 0x20
-#define DNSFLAG 0x10
-#define OICQFLAG 0x08
-#define FINFLAG 0x04
-#define SYNFLAG 0x02
-#define RSTFLAG 0x01
+
 class BaseTool
 {
 public:
@@ -112,6 +123,24 @@ public:
 		return -1;
 	}
 	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets(pcap_t *pt=NULL);//对原始报文,基于源ip进行收集.
+	
+	vector<_ipid_build> get_ipid_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	//给定源ip,提取其中的ipid原始数据。过滤其中的出口报文
+	vector<_tcp_sequence_build> get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	//给定源ip,提取其中的tcp_seq原始数据。过滤其中的出口报文
+	vector<_tcp_srcport_build> get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	//给定源ip,提取其中的tcp_srcport原始数据。过滤其中的出口报文
+
+	vector < vector< _ipid_build > >construct_ipid_sequences(const vector<_ipid_build> & ipid_data);
+	//根据ipid_build原始数据,构建ipid序列
+
+	vector < vector< _tcp_sequence_build > >construct_tcp_sequences(vector<_tcp_sequence_build> & tcp_seq_data);
+	//根据tcp_seq原始数据,构建tcp_seq序列
+
+	vector< vector<int>> associate_ipidseq_tcpseqs(const vector< vector< _ipid_build>> & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences);
+	//将ipid序列和tcp_seq序列关联起来.关联的方法参见文献 counting nated hosts by observing tcp ip field behavior.
+
+	vector< vector<_tcp_srcport_build>> construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data);
 private:
 	pcap_t *pcapt;
 	char errBuf[PCAP_ERRBUF_SIZE];
