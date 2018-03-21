@@ -94,6 +94,7 @@ vector< _packet> BaseTool::getNextPacket(pcap_t * pt )
 		_packet packet;
 		packet.len = pktheader.caplen;
 		packet.timestamp = abs(pktheader.ts.tv_sec-this->start_timestamp);
+
 		packet.data = (unsigned char *)malloc(sizeof(unsigned char)*packet.len);
 		memcpy(packet.data, pktdata, packet.len);
 		rst.push_back(packet);
@@ -428,6 +429,10 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			_packet_chunk_ packet_info;
 
 			packet_info.timestamp = pkt[0].timestamp;
+			if (packet_info.timestamp > 3600)
+			{
+				continue;
+			}
 			int ip_flag = (*(u_short*)(pkt[0].data + 12));
 			if (ip_flag != 0x0008)//非ip协议
 			{
@@ -441,16 +446,16 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			/*
 			把广播报文过滤
 			*/
-			if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
-			{
-				continue;
-			}
+			//if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
+			//{
+			//	continue;
+			//}
 	
-			if (ih->daddr&0xff000000==0xff000000||ih->saddr&0xff000000==0xff000000)
-				//内部的广播报文
-			{
-				continue;
-			}
+			//if (ih->daddr&0xff000000==0xff000000||ih->saddr&0xff000000==0xff000000)
+			//	//内部的广播报文
+			//{
+			//	continue;
+			//}
 			little_endian2big_endian((u_char*)&(ih->identification), 2, (u_char*)&(packet_info.ipid));
 			packet_info.ttl = ih->ttl;
 			packet_info.byte_length = pkt[0].len - 14;
@@ -545,7 +550,7 @@ vector<_ipid_build> BaseTool::get_ipid_data(map<unsigned int, vector<_packet_chu
 	vector<_packet_chunk_>& packets = (*p_packets)[srcip];
 	for (int i = 0; i < packets.size(); i++)
 	{
-		if (packets[i].flag == 1)
+		if (packets[i].flag == 1 && (packets[i].utility_flag&SYNFLAG) == SYNFLAG)
 			//出去的数据包
 		{
 			_ipid_build ipid_info;
@@ -567,7 +572,7 @@ vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<
 		if (packets[i].flag == 1)
 			//出去的数据包
 		{
-			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG)
+			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG && (packets[i].utility_flag&SYNFLAG)==SYNFLAG)
 			{
 				_tcp_sequence_build sequence;
 				sequence.relative_id = packets[i].relative_id;
@@ -588,12 +593,17 @@ vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vec
 	{
 		if (packets[i].flag == 1)
 		{
-			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG)
+			if ((packets[i].utility_flag&TCPFLAG) == TCPFLAG && (packets[i].utility_flag&SYNFLAG) == SYNFLAG)
 			{
 				_tcp_srcport_build srcport;
 				srcport.relative_id = packets[i].relative_id;
 				srcport.srcport = packets[i].srcport;
 				srcport.timestamp = packets[i].timestamp;
+				//那一些特殊端口过滤掉
+				if (srcport.srcport <= 1024)
+				{
+					continue;
+				}
 				tcp_srcports.push_back(srcport);
 			}
 		}
@@ -603,8 +613,8 @@ vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vec
 vector < vector< _ipid_build > >BaseTool::construct_ipid_sequences(const vector<_ipid_build> & ipid_data)
 //根据ipid_build原始数据,构建ipid序列
 {
-	long timelimit = 20;
-	u_short gaplimit = 128;
+	long timelimit = 6;
+	u_short gaplimit = 1024;
 	long MemberCri = 10;
 	long MemberCri2 = 100;
 
@@ -782,9 +792,9 @@ vector < vector< _tcp_sequence_build > >BaseTool::construct_tcp_sequences(vector
 //根据tcp_seq原始数据,构建tcp_seq序列
 {
 	long timelimit = 100;
-	u_short gaplimit = 1460;
+	u_short gaplimit = 1460;//mtu大小
 	long MemberCri = 5;
-	long MemberCri2 = 100;
+	long MemberCri2 = 50;
 
 	vector< vector<_tcp_sequence_build> >tcpseq_sequences;
 	while (!tcpseq_sequences.empty())
@@ -1027,10 +1037,10 @@ rst[i][j]=k
 
 vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data)
 {
-	long timelimit = 30;
-	u_short gaplimit = 64;
+	long timelimit = 512;
+	u_short gaplimit =64;
 	long MemberCri = 5;
-	long MemberCri2 = 20;
+	long MemberCri2 = 50;
 
 	vector< vector<_tcp_srcport_build> >tcp_srcport_sequences;
 	while (!tcp_srcport_sequences.empty())
@@ -1045,12 +1055,16 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 		bool flag = 0;
 		int min_diff = 0x0fffffff;
 		int index = -1;
+		if (tcp_seq == 44140)
+		{
+			printf("debug....\n");
+		}
 		for (int j = 0; j < tcp_srcport_sequences.size(); j++)
 		{
 			for (int k = 0; k < tcp_srcport_sequences[j].size(); k++)
 			{
 
-				auto ipid_diff = (tcp_seq - tcp_srcport_sequences[j][k].srcport);
+				auto ipid_diff = abs(tcp_seq - tcp_srcport_sequences[j][k].srcport);//可以有一点乱序,但是不可以乱的太离谱
 				auto time_diff = (timestamp - tcp_srcport_sequences[j][k].timestamp);
 				if (time_diff >= 0 && ipid_diff>=0 && ipid_diff< min_diff && ipid_diff < gaplimit &&time_diff < timelimit)
 				{
@@ -1067,7 +1081,9 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 		}
 		else
 		{
-			tcp_srcport_sequences[index].push_back({ tcp_seq, timestamp, relative_id });
+
+				tcp_srcport_sequences[index].push_back({ tcp_seq, timestamp, relative_id });
+
 		}
 	}
 	vector< vector<_tcp_srcport_build> > rst;
@@ -1082,6 +1098,10 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 
 	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
 	vector < vector<_tcp_srcport_build> > rst2;
+	if (rst.size() == 0)
+	{
+		return rst;
+	}
 	rst2.push_back(rst[0]);
 	for (int i = 1; i < rst.size(); i++)
 	{
