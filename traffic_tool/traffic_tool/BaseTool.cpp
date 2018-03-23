@@ -407,7 +407,8 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 	return rst2;
 }
 map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap_t *pt)
-//对原始报文,基于源ip进行收集.
+//对原始报文,基于源ip进行收集
+//2018-03-22
 {
 	static unsigned int relative_id=0;
 	map<unsigned int, vector< _packet_chunk_> >* prst = new map<unsigned int, vector< _packet_chunk_> >;
@@ -429,7 +430,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			_packet_chunk_ packet_info;
 
 			packet_info.timestamp = pkt[0].timestamp;
-			if (packet_info.timestamp > 3600)
+			if (!(packet_info.timestamp > 50*60  && packet_info.timestamp<120*60 ))
 			{
 				continue;
 			}
@@ -585,7 +586,7 @@ vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<
 	return tcp_seqs;
 }
 vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
-//给定源ip,提取其中的tcp_srcport原始数据。过滤其中的出口报文
+//给定源ip,提取其中的tcp_srcport原始数据。过滤其中的tcp.syn==1出口报文
 {
 	vector<_tcp_srcport_build> tcp_srcports;
 	vector<_packet_chunk_> & packets = (*p_packets)[srcip];
@@ -604,6 +605,11 @@ vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vec
 				{
 					continue;
 				}
+				//if (packets[i].dstip == inet_addr("43.239.158.85"))
+				//	//从树霉派出口流量过滤连接到vps的流量
+				//{
+				//	continue;
+				//}
 				tcp_srcports.push_back(srcport);
 			}
 		}
@@ -1038,7 +1044,7 @@ rst[i][j]=k
 vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data)
 {
 	long timelimit = 512;
-	u_short gaplimit =64;
+	u_short gaplimit =256;
 	long MemberCri = 5;
 	long MemberCri2 = 50;
 
@@ -1090,104 +1096,10 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 	for (int i = 0; i < tcp_srcport_sequences.size(); i++)
 		//过滤太短的
 	{
-		if (tcp_srcport_sequences[i].size() >= MemberCri)
+		if (tcp_srcport_sequences[i].size() >= MemberCri2)
 		{
 			rst.push_back(tcp_srcport_sequences[i]);
 		}
 	}
-
-	//过滤与其它组重叠的,进行合并,短的合并到长的里面去
-	vector < vector<_tcp_srcport_build> > rst2;
-	if (rst.size() == 0)
-	{
-		return rst;
-	}
-	rst2.push_back(rst[0]);
-	for (int i = 1; i < rst.size(); i++)
-	{
-		bool flag = 0;
-		set<int> port_set;
-		set<int> time_set;
-		for (int j = 0; j < rst[i].size(); j++)
-		{
-			port_set.insert(rst[i][j].srcport);
-			time_set.insert(rst[i][j].timestamp);
-		}
-		for (int j = 0; j < rst2.size(); j++)
-		{
-			int port_interact = 0;
-			int time_interact = 0;
-			for (int k = 0; k < rst2[j].size(); k++)
-			{
-				if (port_set.find(rst2[j][k].srcport) != port_set.end())
-				{
-					port_interact++;
-				}
-				if (time_set.find(rst2[j][k].timestamp) != time_set.end())
-				{
-					time_interact++;
-				}
-			}
-
-			if (port_interact >= min(rst[i].size(), rst2[j].size())*0.5 && time_interact >= min(rst[i].size(), rst2[j].size())*0.5)
-				//合并
-			{
-				vector< _tcp_srcport_build> ipid_sequence;
-				int ii = 0, jj = 0;
-				while (true)
-				{
-					if (rst[i][ii].srcport <= rst2[j][jj].srcport)
-					{
-						if (ipid_sequence.empty() || rst[i][ii].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
-						{
-							ipid_sequence.push_back(rst[i][ii]);
-						}
-						ii++;
-					}
-					else
-					{
-						if (ipid_sequence.empty() || rst2[j][jj].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
-						{
-							ipid_sequence.push_back(rst2[j][jj]);
-						}
-						jj++;
-					}
-					if (ii >= rst[i].size())
-					{
-						break;
-					}
-					if (jj >= rst2[j].size())
-					{
-						break;
-					}
-				}
-				while (ipid_sequence.empty() || ii < rst[i].size())
-				{
-					if (rst[i][ii].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
-					{
-						ipid_sequence.push_back(rst[i][ii]);
-					}
-					ii++;
-				}
-				while (ipid_sequence.empty() || jj < rst2[j].size())
-				{
-					if (rst2[j][jj].srcport != ipid_sequence[ipid_sequence.size() - 1].srcport)
-					{
-						ipid_sequence.push_back(rst2[j][jj]);
-					}
-					jj++;
-				}
-				rst2[j] = ipid_sequence;
-				flag = 1;
-				break;
-			}
-
-		}
-		if (flag == 0)
-		{
-			rst2.push_back(rst[i]);
-		}
-	}
-
-	return rst2;
+	return rst;
 }
