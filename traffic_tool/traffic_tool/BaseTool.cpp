@@ -430,7 +430,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			_packet_chunk_ packet_info;
 
 			packet_info.timestamp = pkt[0].timestamp;
-			if (!(packet_info.timestamp > 50*60  && packet_info.timestamp<120*60 ))
+			if (!(packet_info.timestamp > 0*60  && packet_info.timestamp<60*60 ))
 			{
 				continue;
 			}
@@ -1046,7 +1046,7 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 	long timelimit = 512;
 	u_short gaplimit =256;
 	long MemberCri = 5;
-	long MemberCri2 = 50;
+	long MemberCri2 = 100;
 
 	vector< vector<_tcp_srcport_build> >tcp_srcport_sequences;
 	while (!tcp_srcport_sequences.empty())
