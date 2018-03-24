@@ -79,6 +79,131 @@ struct _packet_chunk_
 		;
 	}
 };
+struct _packet_statics_feature
+{
+	unsigned int ip;			//统计对象
+	unsigned char device_type;//设备类型: 0x01:单机设备	0x02:NAT设备 0x00:未知
+	int start_timestamp;		//统计的起始时间戳
+	int end_timestamp;			//统计的结束时间戳
+								// start_timestamp~end_timestamp为统计时段
+	int numInPkt;				//统计时段内流入的IP数据包个数
+	int numInByte;				//流入的字节数
+	int numOutPkt;					//流出的IP数据包个数
+	int numOutByte;				//流出的字节数
+	int numHTTP;				//HTTP(s)数据包个数
+	int numTCP;					//TCP数据包个数
+	int	numUDP;					//UDP数据包个数
+	int numDNSReq;				//发出的DNS请求个数
+	int numSYN;					//发出的SYN个数
+	int numRST;					//RST报文个数（与流向无关)
+	int numFIN;					//FIN报文个数（与流向无关)
+	int numIP;					//与多少个不同的IP进行通信
+	float idle_time;			//累计空闲时长
+	float max_busy_time;		//最大连续忙碌时长
+	float idle_time_rate;		//空闲时间占比:idle_time/(end_timestamp-start_timestamp)
+	float diff_udp_tcp;			//abs(numTCP-numUDP)/(numInPkt+numOutPkt)
+	int numOICQ;				//OICQ协议中,不同QQ号的个数
+	set<unsigned int>* oicq_set;//oicq qq号集合
+	int numTTL;					//发出的IP数据中有多少个不同的TTL值
+	double std_srcport;			//发出的TCP SYN报文中 srcport的标准差
+	vector<unsigned short>* srcport_seq;//发出的TCP SYN srcport集合
+	vector<unsigned int> * timestamp_seq;//包到达时间序列,用于计算空闲时间
+	set<unsigned int >* ip_set;
+	set<unsigned char > * ttl_set;
+	_packet_statics_feature() :
+		ip(0), device_type(0x00),
+		start_timestamp(0), end_timestamp(0),
+		numInPkt(0), numInByte(0), numOutPkt(0), numOutByte(0), numHTTP(0), numTCP(0), numUDP(0), numDNSReq(0), numSYN(0), numFIN(0), numRST(0), numIP(0), numOICQ(0), numTTL(0),
+		idle_time(0), max_busy_time(0), idle_time_rate(0), std_srcport(0), diff_udp_tcp(0),
+		oicq_set(NULL), srcport_seq(NULL),timestamp_seq(NULL),ip_set(NULL),ttl_set(NULL)
+	{
+		;
+	}
+
+	//~_packet_statics_feature()
+	//{
+	//	if(oicq_set)
+	//	{
+	//		delete oicq_set;
+	//	}
+	//	if(srcport_seq)
+	//	{
+	//		delete srcport_seq;
+	//	}
+	//	if(timestamp_seq)
+	//	{
+	//		delete timestamp_seq;
+	//	}
+	//	if(ip_set)
+	//	{
+	//		delete ip_set;
+	//	}
+	//	if(ttl_set)
+	//	{
+	//		delete ttl_set;
+	//	}
+	//}
+	void display()
+	{
+		in_addr addr;
+		addr.S_un.S_addr = this->ip;
+		printf("IP:%s , device type:%d \n", inet_ntoa(addr), this->device_type);
+		printf("start timestamp:%d, end timestamp:%d \n", start_timestamp, end_timestamp);
+		printf("numInPkt:%d, numInByte:%d\n", numInPkt, numInByte);
+		printf("numOutPkt:%d, numOutByte:%d \n", numOutPkt, numOutByte);
+		printf("numHTTP:%d \n", numHTTP);
+		printf("numTCP:%d , numUDP：%d \n", numTCP, numUDP);
+		printf("numDNSReq:%d \n", numDNSReq);
+		printf("numSYN:%d , numFIN:%d , numRST :%d \n", numSYN, numFIN, numRST);
+		printf("numIP:%d \n", numIP);
+		printf("numOICQ:%d \n", numOICQ);
+		printf("numTTL:%d \n", numTTL);
+		printf("idle time:%f \n", idle_time);
+		printf("idle time rate:%f \n", idle_time_rate);
+		printf("max busy time:%f \n", max_busy_time);
+		printf("std src port:%llf \n", std_srcport);
+		printf("diff udp tcp:%f \n", diff_udp_tcp);
+		printf("****************************************************\n");
+
+	}
+	void _vectorize(char * dst,int bufSize=512)
+		//向量的格式：
+		/*
+		label 特征0 特征1 特征2 ....\n
+		label 特征0 特征1 特征2 ....\n
+		label 特征0 特征1 特征2 ....\n
+		label 特征0 特征1 特征2 ....\n
+		···
+		···
+		*/
+	{
+		memset(dst, 0, bufSize);
+		sprintf(dst, "%d %d %d %d %d %d %d %d %d %d %d %d %d %0.3f %0.3f %0.3f %0.4f %d %d %0.3llf\n", device_type,
+			numInPkt, numInByte, numOutPkt, numOutByte,
+			numHTTP, numTCP, numUDP, numDNSReq,
+			numSYN, numRST, numFIN,
+			numIP,
+			idle_time,max_busy_time, idle_time_rate,
+			diff_udp_tcp,
+			numOICQ,
+			numTTL,
+			std_srcport
+			);
+	}
+	void vectorize(char *filename,char *mode="a")
+	{
+		FILE *fp = fopen(filename,mode);
+		vectorize(fp);
+		fclose(fp);
+	}
+	void vectorize(FILE * fp)
+	{
+		char buf[512];
+		_vectorize(buf);
+		printf("%s", buf);
+		fprintf(fp, buf);
+	}
+};
 
 class BaseTool
 {
@@ -141,6 +266,9 @@ public:
 	//将ipid序列和tcp_seq序列关联起来.关联的方法参见文献 counting nated hosts by observing tcp ip field behavior.
 
 	vector< vector<_tcp_srcport_build>> construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data);
+	//提取TCP src port 序列
+	vector<_packet_statics_feature> abstract_statics_feature(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip,int timegap=3600,unsigned char device_type=0x00);
+	//固定IP,提取与该IP相关的流量的统计特征,以timegap为一个间隔进行提取.若所给的p_packets包含多个timegap,那么返回结果也会包含多个vector<_packet_statics_feature>
 private:
 	pcap_t *pcapt;
 	char errBuf[PCAP_ERRBUF_SIZE];
