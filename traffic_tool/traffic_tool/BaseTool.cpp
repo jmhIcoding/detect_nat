@@ -532,6 +532,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			{
 				(*prst)[ih->saddr].push_back(packet_info);
 			}
+			//对dst ip来说,这个包是进来的包
 			packet_info.dstip = ih->saddr;
 			packet_info.flag = 0;
 			(*prst)[ih->daddr].push_back(packet_info);
@@ -1102,4 +1103,184 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 		}
 	}
 	return rst;
+}
+
+vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip, int timegap,unsigned char device_type)
+//固定IP,提取与该IP相关的流量的统计特征,以timegap为一个间隔进行提取.若所给的p_packets包含多个timegap,那么返回结果也会包含多个vector<_packet_statics_feature>
+//默认timegap为一个小时
+{
+	vector< _packet_statics_feature>  statics_features;
+	vector<_packet_chunk_>& packets = (*p_packets)[srcip];
+	for (int i = 0; i < packets.size(); i++)
+	{
+
+		int index = packets[i].timestamp / timegap;
+		while (statics_features.size() <= index)
+			//不存在,则先建立
+		{
+
+			_packet_statics_feature* feature = new _packet_statics_feature();
+			statics_features.push_back(*feature);
+		}
+		if (statics_features[index].ip==0)
+			//该项是空的,并没有进行有效赋值
+		{
+			statics_features[index].ip = srcip;
+			statics_features[index].device_type = device_type;
+			statics_features[index].start_timestamp = packets[i].timestamp;
+			statics_features[index].oicq_set = new set<unsigned int >();
+			statics_features[index].srcport_seq = new vector<unsigned short int>();
+			statics_features[index].timestamp_seq = new vector<unsigned int>();
+			statics_features[index].ip_set = new set<unsigned int>();
+			statics_features[index].ttl_set = new set<unsigned char>();
+		}
+		if (packets[i].timestamp < statics_features[index].start_timestamp)
+		{
+			statics_features[index].start_timestamp = packets[i].timestamp;
+		}
+		if (packets[i].timestamp>statics_features[index].end_timestamp)
+		{
+			statics_features[index].end_timestamp = packets[i].timestamp;
+		}
+		if (packets[i].flag == 0)
+		{
+			statics_features[index].numInPkt++;
+			statics_features[index].numInByte += packets[i].byte_length;
+		}
+		else if (packets[i].flag == 1)
+			//出口包
+		{
+			statics_features[index].numOutPkt++;
+			statics_features[index].numOutByte += packets[i].byte_length;
+			statics_features[index].ip_set->insert(packets[i].dstip);
+
+			if ((packets[i].utility_flag & OICQFLAG) == OICQFLAG)
+			{
+				statics_features[index].oicq_set->insert(packets[i].oicq_number);
+			}
+			if ((packets[i].utility_flag & SYNFLAG) == SYNFLAG && (packets[i].utility_flag& TCPFLAG) == TCPFLAG)
+			{
+				statics_features[index].srcport_seq->push_back(packets[i].srcport);
+				statics_features[index].ttl_set->insert(packets[i].ttl);
+			}
+			if ((packets[i].utility_flag & DNSFLAG) == DNSFLAG)
+			{
+				statics_features[index].numDNSReq++;
+			}
+			if ((packets[i].utility_flag & SYNFLAG) == SYNFLAG)
+			{
+				statics_features[index].numSYN++;
+			}
+			statics_features[index].timestamp_seq->push_back(packets[i].timestamp);
+		}
+		if ((packets[i].utility_flag & TCPFLAG) == TCPFLAG)
+		{
+			statics_features[index].numTCP++;
+		}
+		if ((packets[i].utility_flag & UDPFLAG) == UDPFLAG)
+		{
+			statics_features[index].numUDP++;
+		}
+		if ((packets[i].utility_flag & HTTPFLAG) == HTTPFLAG)
+		{
+			statics_features[index].numHTTP++;
+		}
+		if ((packets[i].utility_flag & FINFLAG) == FINFLAG)
+		{
+			statics_features[index].numFIN++;
+		}
+		if ((packets[i].utility_flag & RSTFLAG) == RSTFLAG)
+		{
+			statics_features[index].numRST++;
+		}
+		//if (i == 77)
+		//二分定位调试点
+		//{
+		//	printf("%d", i);
+		//}
+
+	}
+	//整合数据
+	set<int> dropIndex;
+	for (int i = 0; i<statics_features.size();i++)
+	{
+		if (abs(statics_features[i].end_timestamp - statics_features[i].start_timestamp) < timegap*0.5)
+		{
+			dropIndex.insert(i);
+			continue;
+		}
+		statics_features[i].numOICQ = statics_features[i].oicq_set->size();
+		delete statics_features[i].oicq_set;
+		statics_features[i].numIP = statics_features[i].ip_set->size();
+		delete statics_features[i].ip_set;
+		statics_features[i].numTTL = statics_features[i].ttl_set->size();
+		delete statics_features[i].ttl_set;
+		statics_features[i].diff_udp_tcp = abs(statics_features[i].numUDP - statics_features[i].numTCP)*1.0 / (0.000001+statics_features[i].numInPkt + statics_features[i].numOutPkt);
+		//计算srcport的方差
+		double avg = 0;
+		double sum = 0;
+		for (int j = 0; j < statics_features[i].srcport_seq->size(); j++)
+		{
+			sum += (*statics_features[i].srcport_seq)[j];
+		}
+		avg = sum / (0.000001+statics_features[i].srcport_seq->size());
+		sum = 0;//平方差和
+		for (int j = 0; j < statics_features[i].srcport_seq->size(); j++)
+		{
+			sum += pow((*statics_features[i].srcport_seq)[j]-avg,2);
+		}
+		avg = sum / (0.000001+statics_features[i].srcport_seq->size());
+
+		statics_features[i].std_srcport = sqrt(avg);
+		delete statics_features[i].srcport_seq;
+		//计算空闲时间
+		set<unsigned int> timestamp_set;
+		for (int ii = 0; ii < statics_features[i].timestamp_seq->size(); ii++)
+		{
+			timestamp_set.insert((*statics_features[i].timestamp_seq)[ii]);
+		}
+		statics_features[i].idle_time = (statics_features[i].end_timestamp - statics_features[i].start_timestamp) - timestamp_set.size();
+		statics_features[i].idle_time_rate = statics_features[i].idle_time / (0.00001+(statics_features[i].end_timestamp - statics_features[i].start_timestamp));
+		//计算最大连续(差值小于等于2)忙碌时间,使用DP算法
+		int * count_array = (int *)malloc(sizeof(int)*(timestamp_set.size()));
+		int ii = 0;
+		statics_features[i].max_busy_time = 0;
+		unsigned int last = 0;
+		for (set<unsigned int>::iterator p = timestamp_set.begin(); p != timestamp_set.end(); ii++,p++)
+		{
+			if (ii == 0)
+			{
+				count_array[ii] = 1;
+				last = *p;
+				continue;
+			}
+			if ((*p - last) <= 2)
+			{
+				count_array[ii] = count_array[ii - 1] + *p - last;
+			}
+			else
+			{
+				count_array[ii] = 1;
+			}
+			last = *p;
+			if (count_array[ii] > statics_features[i].max_busy_time)
+			{
+				statics_features[i].max_busy_time = count_array[ii];
+			}
+
+		}
+		free(count_array);
+		delete statics_features[i].timestamp_seq;
+	}
+
+	vector< _packet_statics_feature>  statics_features_ret;
+	for (int i = 0; i < statics_features.size(); i++)
+	{
+		if (dropIndex.find(i) != dropIndex.end())
+		{
+			continue;
+		}
+		statics_features_ret.push_back(statics_features[i]);
+	}
+	return statics_features_ret;
 }
