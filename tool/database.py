@@ -2,7 +2,7 @@
 __author__ = 'jmh081701'
 from pymongo import *
 import json
-
+import  time
 class dat_filetool:
     def __init__(self,dat_filename):
         '''
@@ -43,6 +43,8 @@ class DataBase:
                 raise 'sample donot has vec key-value.'
             if type(each['vec'])!=type([0,1,2,3]):
                 raise 'vec donot map to a list'
+            each['timestamp']=time.strftime("%Y-%m-%d %H:%M:%S")
+            #print(each['timestamp'])
             self.dataset.insert(each)
     def get_dataset(self,cond={}):
         rst=list()
