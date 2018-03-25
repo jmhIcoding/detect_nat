@@ -34,6 +34,49 @@ BaseTool::BaseTool(const char *pcapfilename)
 		exit(-1);
 	}
 }
+BaseTool::BaseTool(const char *interfaces, char *filters)
+//���߻�ȡ����,������Ҫʹ��filters�Ƚ��й���
+{
+	{
+		pcap_if_t *alldevs;
+		pcap_if_t *d;
+		int inum;
+		int i = 0;
+		pcap_t *adhandle;
+		char errbuf[PCAP_ERRBUF_SIZE];
+
+		/* Retrieve the device list on the local machine */
+		if (pcap_findalldevs(&alldevs,errBuf) == -1)
+		{
+			fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
+			exit(1);
+		}
+
+		/* Print the list */
+		for (d = alldevs; d; d = d->next)
+		{
+			printf("%d. %s\n", ++i, d->name);
+			if (d->description)
+				printf(" (%s)\n", d->description);
+			else
+				printf(" (No description available)\n");
+		}
+
+		if (i == 0)
+		{
+			printf("\nNo interfaces found! Make sure WinPcap is installed.\n");
+		}
+	}
+	this->pcapt = pcap_open_live(interfaces, 65535,1 , 1000, errBuf);
+	if (this->pcapt == NULL)
+	{
+		printf("Error when open interface %s.\n", interfaces);
+		system("pause");
+		exit(-1);
+	}
+	setFilter(filters, this->pcapt);
+
+}
 void BaseTool::setFilter(char *FilterString, pcap_t * pt)
 //���ù�����
 {
@@ -1286,3 +1329,147 @@ vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned 
 	}
 	return statics_features_ret;
 }
+map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_online(pcap_t *pt,int timegap)
+//���߻�ȡ����,����Դip�����ռ�
+//2018-03-22
+{
+	static unsigned int relative_id = 0;
+	map<unsigned int, vector< _packet_chunk_> >* prst = new map<unsigned int, vector< _packet_chunk_> >;
+	while (!prst->empty())
+		//���
+	{
+		prst->clear();
+	}
+	if (pt == NULL)
+	{
+		pt = this->pcapt;
+	}
+	this->start_timestamp = -1;
+	while (true)
+	{
+		vector<_packet> pkt = this->getNextPacket(pt);
+		relative_id = (relative_id + 1) % 0xFFFFFFFF;
+		if (pkt.size())
+		{
+			_packet_chunk_ packet_info;
+
+			packet_info.timestamp = pkt[0].timestamp;
+			if (!(packet_info.timestamp > 0  && packet_info.timestamp<timegap ))
+			{
+				free(pkt[0].data);
+				break;
+			}
+			int ip_flag = (*(u_short*)(pkt[0].data + 12));
+			if (ip_flag != 0x0008)//��ipЭ��
+			{
+				continue;
+			}
+			ip_header *ih;
+			udp_header *udp;
+			tcp_header *tcp;
+			u_int ip_len;
+			ih = (ip_header*)(pkt[0].data + 14);//����̫��ͷƫ��
+			/*
+			�ѹ㲥���Ĺ���
+			*/
+			//if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
+			//{
+			//	continue;
+			//}
+
+			//if (ih->daddr&0xff000000==0xff000000||ih->saddr&0xff000000==0xff000000)
+			//	//�ڲ��Ĺ㲥����
+			//{
+			//	continue;
+			//}
+			little_endian2big_endian((u_char*)&(ih->identification), 2, (u_char*)&(packet_info.ipid));
+			packet_info.ttl = ih->ttl;
+			packet_info.byte_length = pkt[0].len - 14;
+			packet_info.relative_id = relative_id;
+			if (ih->proto == 6)
+				//tcpЭ��,��ȡtcp sequence
+			{
+				packet_info.utility_flag |= TCPFLAG;
+				tcp = (tcp_header*)(pkt[0].data + 14 + 20);
+				unsigned short srcport;
+				unsigned short dstport;
+				little_endian2big_endian((u_char*)&(tcp->sequence), 4, (u_char*)&(packet_info.tcp_sequecnce));
+
+				little_endian2big_endian((u_char*)&(tcp->sport), 2, (u_char*)&(srcport));
+
+				little_endian2big_endian((u_char*)&(tcp->dport), 2, (u_char*)&(dstport));
+				packet_info.srcport = srcport;
+				if (srcport == 80 || srcport == 443 || dstport == 80 || srcport == 443)
+					//http ����
+				{
+					packet_info.utility_flag |= HTTPFLAG;
+				}
+				if (tcp->flag & 0x01)
+					//fin ����
+				{
+					packet_info.utility_flag |= FINFLAG;
+				}
+				if (tcp->flag & 0x02)
+					//SYN����
+				{
+					packet_info.utility_flag |= SYNFLAG;
+				}
+				if (tcp->flag & 0x04)
+					//reset ����
+				{
+					packet_info.utility_flag |= RSTFLAG;
+				}
+			}
+			else if (ih->proto == 17)
+				//udpЭ��
+			{
+				packet_info.utility_flag |= UDPFLAG;
+				udp = (udp_header*)(pkt[0].data + 14 + 20);
+				unsigned short srcport, dstport;
+				little_endian2big_endian((u_char*)&(udp->sport), 2, (u_char*)&(srcport));
+				little_endian2big_endian((u_char*)&(udp->dport), 2, (u_char*)&(dstport));
+				if (srcport == 53 || dstport == 53)
+				{
+					packet_info.utility_flag |= DNSFLAG;
+				}
+				if (srcport == 8000 || dstport == 8000)
+
+				{
+					unsigned char * pdata = pkt[0].data + 14 + 20 + sizeof(udp_header);
+					if (pdata[0] == 0x02)
+						//oicqЭ��
+					{
+						little_endian2big_endian(pdata + 6, sizeof(unsigned int), (unsigned char *)&packet_info.oicq_number);
+					}
+				}
+			}
+
+			//���Ͼ��Ѿ��������
+			packet_info.dstip = ih->daddr;
+			//��src ip ��˵,������ǳ�ȥ�İ�
+			packet_info.flag = 1;
+			if (prst->find(ih->saddr) != prst->end())
+				//�Ѿ��ҵ���,������ݲ���
+			{
+				(*prst)[ih->saddr].push_back(packet_info);
+			}
+			else
+			{
+				(*prst)[ih->saddr].push_back(packet_info);
+			}
+			//��dst ip��˵,������ǽ����İ�
+			packet_info.dstip = ih->saddr;
+			packet_info.flag = 0;
+			(*prst)[ih->daddr].push_back(packet_info);
+			//�ͷű���ռ�õ��ڴ�
+			free(pkt[0].data);
+		}
+		else
+		{
+			break;
+		}
+
+	}
+	return prst;
+}
+
