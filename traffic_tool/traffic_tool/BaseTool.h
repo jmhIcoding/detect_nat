@@ -1,6 +1,12 @@
 #pragma once
 #ifndef __BASETOOLH__
 #define __BASETOOLH__  0
+#ifdef _WIN32
+#define WINDOWS
+#endif
+#ifdef __linux__
+#define LINUX
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap-stdinc.h>
