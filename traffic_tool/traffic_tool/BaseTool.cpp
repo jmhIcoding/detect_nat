@@ -35,7 +35,7 @@ BaseTool::BaseTool(const char *pcapfilename)
 	}
 }
 BaseTool::BaseTool(const char *interfaces, char *filters)
-//ï¿½ï¿½ï¿½ß»ï¿½È¡ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒªÊ¹ï¿½ï¿½filtersï¿½È½ï¿½ï¿½Ğ¹ï¿½ï¿½ï¿½
+//ÔÚÏß»ñÈ¡Êı¾İ,µ«ÊÇĞèÒªÊ¹ÓÃfiltersÏÈ½øĞĞ¹ıÂË
 {
 	{
 		pcap_if_t *alldevs;
@@ -474,10 +474,10 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			_packet_chunk_ packet_info;
 
 			packet_info.timestamp = pkt[0].timestamp;
-			if (!(packet_info.timestamp > 0*60  && packet_info.timestamp<60*60 ))
-			{
-				continue;
-			}
+			//if (!(packet_info.timestamp > 0*60  && packet_info.timestamp<60*60 ))
+			//{
+			//	continue;
+			//}
 			int ip_flag = (*(u_short*)(pkt[0].data + 12));
 			if (ip_flag != 0x0008)//·ÇipĞ­Òé
 			{
@@ -580,7 +580,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			packet_info.dstip = ih->saddr;
 			packet_info.flag = 0;
 			(*prst)[ih->daddr].push_back(packet_info);
-			//ï¿½Í·Å±ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ú´ï¿½
+			//ÊÍ·Å±¾°üÕ¼ÓÃµÄÄÚ´æ
 			free(pkt[0].data);
 		}
 		else
@@ -1331,13 +1331,13 @@ vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned 
 	return statics_features_ret;
 }
 map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_online(pcap_t *pt,int timegap)
-//ï¿½ï¿½ï¿½ß»ï¿½È¡ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½Ô´ipï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½
+//ÔÚÏß»ñÈ¡±¨ÎÄ,»ùÓÚÔ´ip½øĞĞÊÕ¼¯
 //2018-03-22
 {
 	static unsigned int relative_id = 0;
 	map<unsigned int, vector< _packet_chunk_> >* prst = new map<unsigned int, vector< _packet_chunk_> >;
 	while (!prst->empty())
-		//ï¿½ï¿½ï¿½
+		//Çå¿Õ
 	{
 		prst->clear();
 	}
@@ -1361,7 +1361,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 				break;
 			}
 			int ip_flag = (*(u_short*)(pkt[0].data + 12));
-			if (ip_flag != 0x0008)//ï¿½ï¿½ipĞ­ï¿½ï¿½
+			if (ip_flag != 0x0008)//·ÇipĞ­Òé
 			{
 				continue;
 			}
@@ -1369,9 +1369,9 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 			udp_header *udp;
 			tcp_header *tcp;
 			u_int ip_len;
-			ih = (ip_header*)(pkt[0].data + 14);//ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½Í·Æ«ï¿½ï¿½
+			ih = (ip_header*)(pkt[0].data + 14);//°ÑÒÔÌ«ÍøÍ·Æ«ÒÆ
 			/*
-			ï¿½Ñ¹ã²¥ï¿½ï¿½ï¿½Ä¹ï¿½ï¿½ï¿½
+			°Ñ¹ã²¥±¨ÎÄ¹ıÂË
 			*/
 			//if (ih->daddr == 0xffffffff || ih->saddr == 0xffffffff)
 			//{
@@ -1379,7 +1379,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 			//}
 
 			//if (ih->daddr&0xff000000==0xff000000||ih->saddr&0xff000000==0xff000000)
-			//	//ï¿½Ú²ï¿½ï¿½Ä¹ã²¥ï¿½ï¿½ï¿½ï¿½
+			//	//ÄÚ²¿µÄ¹ã²¥±¨ÎÄ
 			//{
 			//	continue;
 			//}
@@ -1388,7 +1388,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 			packet_info.byte_length = pkt[0].len - 14;
 			packet_info.relative_id = relative_id;
 			if (ih->proto == 6)
-				//tcpĞ­ï¿½ï¿½,ï¿½ï¿½È¡tcp sequence
+				//tcpĞ­Òé,ÌáÈ¡tcp sequence
 			{
 				packet_info.utility_flag |= TCPFLAG;
 				tcp = (tcp_header*)(pkt[0].data + 14 + 20);
@@ -1401,28 +1401,28 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 				little_endian2big_endian((u_char*)&(tcp->dport), 2, (u_char*)&(dstport));
 				packet_info.srcport = srcport;
 				if (srcport == 80 || srcport == 443 || dstport == 80 || srcport == 443)
-					//http ï¿½ï¿½ï¿½ï¿½
+					//http ±¨ÎÄ
 				{
 					packet_info.utility_flag |= HTTPFLAG;
 				}
 				if (tcp->flag & 0x01)
-					//fin ï¿½ï¿½ï¿½ï¿½
+					//fin ±¨ÎÄ
 				{
 					packet_info.utility_flag |= FINFLAG;
 				}
 				if (tcp->flag & 0x02)
-					//SYNï¿½ï¿½ï¿½ï¿½
+					//SYN±¨ÎÄ
 				{
 					packet_info.utility_flag |= SYNFLAG;
 				}
 				if (tcp->flag & 0x04)
-					//reset ï¿½ï¿½ï¿½ï¿½
+					//reset ±¨ÎÄ
 				{
 					packet_info.utility_flag |= RSTFLAG;
 				}
 			}
 			else if (ih->proto == 17)
-				//udpĞ­ï¿½ï¿½
+				//udpĞ­Òé
 			{
 				packet_info.utility_flag |= UDPFLAG;
 				udp = (udp_header*)(pkt[0].data + 14 + 20);
@@ -1438,19 +1438,19 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 				{
 					unsigned char * pdata = pkt[0].data + 14 + 20 + sizeof(udp_header);
 					if (pdata[0] == 0x02)
-						//oicqĞ­ï¿½ï¿½
+						//oicqĞ­Òé
 					{
 						little_endian2big_endian(pdata + 6, sizeof(unsigned int), (unsigned char *)&packet_info.oicq_number);
 					}
 				}
 			}
 
-			//ï¿½ï¿½ï¿½Ï¾ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			//ÒÔÉÏ¾ÍÒÑ¾­ÕûÀíºÃÁË
 			packet_info.dstip = ih->daddr;
-			//ï¿½ï¿½src ip ï¿½ï¿½Ëµ,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç³ï¿½È¥ï¿½Ä°ï¿½
+			//¶Ôsrc ip À´Ëµ,Õâ¸ö°üÊÇ³öÈ¥µÄ°ü
 			packet_info.flag = 1;
 			if (prst->find(ih->saddr) != prst->end())
-				//ï¿½Ñ¾ï¿½ï¿½Òµï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½İ²ï¿½ï¿½ï¿½
+				//ÒÑ¾­ÕÒµ½ÁË,Ôò°ÑÊı¾İ²åÈë
 			{
 				(*prst)[ih->saddr].push_back(packet_info);
 			}
@@ -1458,11 +1458,11 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 			{
 				(*prst)[ih->saddr].push_back(packet_info);
 			}
-			//ï¿½ï¿½dst ipï¿½ï¿½Ëµ,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ï¿½Ä°ï¿½
+			//¶Ôdst ipÀ´Ëµ,Õâ¸ö°üÊÇ½øÀ´µÄ°ü
 			packet_info.dstip = ih->saddr;
 			packet_info.flag = 0;
 			(*prst)[ih->daddr].push_back(packet_info);
-			//ï¿½Í·Å±ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ú´ï¿½
+			//ÊÍ·Å±¾°üÕ¼ÓÃµÄÄÚ´æ
 			free(pkt[0].data);
 		}
 		else
