@@ -212,6 +212,7 @@ public:
 public:
 	BaseTool();
 	BaseTool(const char *pcapfilename);
+	BaseTool(const char *interfaces, char *filters);//在线获取数据,但是需要使用filters先进行过滤
 	void setFilter(char *FilterString, pcap_t * pt = NULL);
 	//设置过滤器
 	vector< _packet> getPackets(pcap_t * pt = NULL);
@@ -249,6 +250,7 @@ public:
 	}
 	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets(pcap_t *pt=NULL);//对原始报文,基于源ip进行收集.
 	
+	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets_online(pcap_t *pt = NULL,int timegap=60*12);//在线处理,基于源ip进行收集.
 	vector<_ipid_build> get_ipid_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
 	//给定源ip,提取其中的ipid原始数据。过滤其中的出口报文
 	vector<_tcp_sequence_build> get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
