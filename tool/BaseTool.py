@@ -12,7 +12,7 @@ class Preprocess:
         self.label=label
         self.rate=rate
         if List==None:
-            Preprocess.db=DataBase()
+            Preprocess.db=DataBase(ip="127.0.0.1")
             self.List=Preprocess.db.get_dataset({})
         else:
             self.List=List

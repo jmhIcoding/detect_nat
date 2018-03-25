@@ -8,11 +8,8 @@ import math
 '''
 The input vector should be a shape of [InputColumn,?]
 '''
-dataset=dat_filetool("vectorize_data.dat").reader()
-data=Preprocess(List=dataset)
-
-
-
+#dataset=dat_filetool("vectorize_data.dat").reader()
+data=Preprocess()
 InputColumn=6
 InputRow=int(data.veclen/InputColumn)
 InputX=tf.placeholder(dtype=tf.float32,shape=[None,None],name="InputX")
