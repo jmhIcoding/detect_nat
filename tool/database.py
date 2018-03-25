@@ -52,9 +52,11 @@ class DataBase:
         for each in datas:
             rst.append(each)
         return  rst
+    def delete(self,cond):
+        self.dataset.delete_many(cond)
 if __name__ == '__main__':
     filereader= dat_filetool("vectorize_data.dat")
     dataset=filereader.reader()
-    for each in dataset:
-        print(each['label'],each)
+    db=DataBase(ip="127.0.0.1")
+    db.insert(dataset)
 
