@@ -99,6 +99,8 @@ class Preprocess:
 
         veclen=len(self.List[0]['vec'])
         sampleSize=len(self.List)
+
+        #do standard normalize
         '''
         for j in range(0,veclen):
             self.avg.append(0)
@@ -121,6 +123,9 @@ class Preprocess:
                 each[j]=(each[j]-self.avg[j])/self.std[j]
             self.vec.append(each)
         '''
+
+        #do min-max tranformation.
+        '''
         for j in range(0,veclen):
             self.min.append(1e12)
             self.max.append(-1e12)
@@ -133,6 +138,14 @@ class Preprocess:
             each=each['vec']
             for j in range(0,veclen):
                 each[j]=(each[j]-self.min[j])/(self.max[j]+self.min[j]+0.000001)
+            self.vec.append(each)
+        return self.vec
+        '''
+
+        #do not normalize
+
+        for each in self.List:
+            each=each['vec']
             self.vec.append(each)
         return self.vec
 
