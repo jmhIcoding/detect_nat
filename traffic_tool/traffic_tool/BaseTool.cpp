@@ -132,6 +132,7 @@ vector< _packet> BaseTool::getNextPacket(pcap_t * pt )
 	{
 		if (this->start_timestamp == -1)
 		{
+			printf("begin capture...\n");
 			this->start_timestamp = pktheader.ts.tv_sec;
 		}
 		_packet packet;
