@@ -1,5 +1,5 @@
 vectorize_online.out : BaseTool.cpp generate_vector_online.cpp define.h
-	g++ -std=c++11 generate_vector_online.cpp BaseTool.cpp define.h -g -lpcap -o vectorize_online.out -w
+	g++ generate_vector_online.cpp BaseTool.cpp define.h -g -lpcap -o vectorize_online.out -w
 clean :
 	rm vectorize_online.out
 install :
