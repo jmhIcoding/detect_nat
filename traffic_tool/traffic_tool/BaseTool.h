@@ -5,17 +5,22 @@
 #define WINDOWS
 #endif
 #ifdef __linux__
+#include <arpa/inet.h>
 #define LINUX
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef WINDOWS
 #include <pcap-stdinc.h>
+#include <inaddr.h>
+#endif
 #include <pcap.h>
 #include <vector>
 #include <string.h>
 #include <malloc.h>
 #include <map>
 #include <set>
+#include <math.h>
 #include "define.h"
 using namespace std;
 struct _ipid_build
@@ -152,7 +157,12 @@ struct _packet_statics_feature
 	void display()
 	{
 		in_addr addr;
+#ifdef _WIN32
 		addr.S_un.S_addr = this->ip;
+#endif
+#ifdef __linux__
+		addr.s_addr=this->ip;
+#endif
 		printf("IP:%s , device type:%d \n", inet_ntoa(addr), this->device_type);
 		printf("start timestamp:%d, end timestamp:%d \n", start_timestamp, end_timestamp);
 		printf("numInPkt:%d, numInByte:%d\n", numInPkt, numInByte);
@@ -258,11 +268,11 @@ public:
 	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets(pcap_t *pt=NULL);//对原始报文,基于源ip进行收集.
 	
 	map<unsigned int, vector < _packet_chunk_> >* cluster_raw_pakcets_online(pcap_t *pt = NULL,int timegap=60*12);//在线处理,基于源ip进行收集.
-	vector<_ipid_build> get_ipid_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	vector<_ipid_build> get_ipid_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip);
 	//给定源ip,提取其中的ipid原始数据。过滤其中的出口报文
-	vector<_tcp_sequence_build> get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	vector<_tcp_sequence_build> get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip);
 	//给定源ip,提取其中的tcp_seq原始数据。过滤其中的出口报文
-	vector<_tcp_srcport_build> get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip);
+	vector<_tcp_srcport_build> get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip);
 	//给定源ip,提取其中的tcp_srcport原始数据。过滤其中的出口报文
 
 	vector < vector< _ipid_build > >construct_ipid_sequences(const vector<_ipid_build> & ipid_data);
@@ -271,18 +281,18 @@ public:
 	vector < vector< _tcp_sequence_build > >construct_tcp_sequences(vector<_tcp_sequence_build> & tcp_seq_data);
 	//根据tcp_seq原始数据,构建tcp_seq序列
 
-	vector< vector<int>> associate_ipidseq_tcpseqs(const vector< vector< _ipid_build>> & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences);
+	vector< vector<int> > associate_ipidseq_tcpseqs(const vector< vector< _ipid_build> > & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences);
 	//将ipid序列和tcp_seq序列关联起来.关联的方法参见文献 counting nated hosts by observing tcp ip field behavior.
 
-	vector< vector<_tcp_srcport_build>> construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data);
+	vector< vector<_tcp_srcport_build> > construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data);
 	//提取TCP src port 序列
-	vector<_packet_statics_feature> abstract_statics_feature(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip,int timegap=3600,unsigned char device_type=0x00);
+	vector<_packet_statics_feature> abstract_statics_feature(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip,int timegap=3600,unsigned char device_type=0x00);
 	//固定IP,提取与该IP相关的流量的统计特征,以timegap为一个间隔进行提取.若所给的p_packets包含多个timegap,那么返回结果也会包含多个vector<_packet_statics_feature>
 private:
 	pcap_t *pcapt;
 	char errBuf[PCAP_ERRBUF_SIZE];
 	long start_timestamp=-1;
-	map<unsigned int, vector< _packet_chunk_>> packet_chunk;
+	map<unsigned int, vector< _packet_chunk_> > packet_chunk;
 	//ip-> _packet_chunk的序列
 };
 /* 4 bytes IP address */
