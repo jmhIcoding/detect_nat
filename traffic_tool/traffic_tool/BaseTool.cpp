@@ -67,7 +67,7 @@ BaseTool::BaseTool(const char *interfaces, char *filters)
 			printf("\nNo interfaces found! Make sure WinPcap is installed.\n");
 		}
 	}
-	this->pcapt = pcap_open_live(interfaces, 65535,1 , 1000, errBuf);
+	this->pcapt = pcap_open_live(interfaces, 65535,1 ,10000, errBuf);
 	if (this->pcapt == NULL)
 	{
 		printf("Error when open interface %s.\n", interfaces);
@@ -1355,7 +1355,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets_onli
 			_packet_chunk_ packet_info;
 
 			packet_info.timestamp = pkt[0].timestamp;
-			if (!(packet_info.timestamp > 0  && packet_info.timestamp<timegap ))
+			if (!(packet_info.timestamp >= 0  && packet_info.timestamp<timegap ))
 			{
 				free(pkt[0].data);
 				break;
