@@ -217,7 +217,7 @@ struct _packet_statics_feature
 		char buf[512];
 		_vectorize(buf);
 		printf("%s", buf);
-		#display();
+		//display();
 		fprintf(fp, buf);
 	}
 };
