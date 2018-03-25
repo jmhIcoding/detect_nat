@@ -286,12 +286,12 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 		bool flag = 0;
 		for (int j = 0; j < ipid_sequences.size(); j++)
 		{
-			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid)%65536;
+			u_short ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid)%65536;
 			while (ipid_diff<0)
 			{
 				ipid_diff += 65536;
 			}
-			auto timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
+			u_short timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
 			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
 			{
 				ipid_sequences[j].push_back({ ipid, timestamp });
@@ -430,7 +430,7 @@ d[m]-d[m-1]<=gaplimit,也就是相邻的di,dj差值不得超过gaplimit.
 			int out_of_order_count = 0;
 			for (int j = 0; j < p->size() - 1; j++)
 			{
-				auto diff = ((*p)[j + 1].ipid - (*p)[j].ipid);
+				u_short diff = ((*p)[j + 1].ipid - (*p)[j].ipid);
 				if (diff != 0 && diff != 1)
 				{
 					out_of_order_count++;
@@ -684,12 +684,12 @@ vector < vector< _ipid_build > >BaseTool::construct_ipid_sequences(const vector<
 		bool flag = 0;
 		for (int j = 0; j < ipid_sequences.size(); j++)
 		{
-			auto ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid) % 65536;
+			u_short ipid_diff = (ipid - ipid_sequences[j][ipid_sequences[j].size() - 1].ipid) % 65536;
 			while (ipid_diff<0)
 			{
 				ipid_diff += 65536;
 			}
-			auto timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
+			u_short timestamp_diff = timestamp - ipid_sequences[j][ipid_sequences[j].size() - 1].timestamp;
 			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
 			{
 				ipid_sequences[j].push_back({ ipid, timestamp ,relative_id});
@@ -820,7 +820,7 @@ vector < vector< _ipid_build > >BaseTool::construct_ipid_sequences(const vector<
 			int out_of_order_count = 0;
 			for (int j = 0; j < p->size() - 1; j++)
 			{
-				auto diff = ((*p)[j + 1].ipid - (*p)[j].ipid);
+				u_short diff = ((*p)[j + 1].ipid - (*p)[j].ipid);
 				if (diff != 0 && diff != 1)
 				{
 					out_of_order_count++;
@@ -862,12 +862,12 @@ vector < vector< _tcp_sequence_build > >BaseTool::construct_tcp_sequences(vector
 		bool flag = 0;
 		for (int j = 0; j < tcpseq_sequences.size(); j++)
 		{
-			auto ipid_diff = (tcp_seq - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].tcp_sequence) % 65536;
+			u_short ipid_diff = (tcp_seq - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].tcp_sequence) % 65536;
 			while (ipid_diff<0)
 			{
 				ipid_diff += 65536;
 			}
-			auto timestamp_diff = timestamp - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].timestamp;
+			int  timestamp_diff = timestamp - tcpseq_sequences[j][tcpseq_sequences[j].size() - 1].timestamp;
 			if ((ipid_diff < gaplimit) && (ipid_diff >= 0) && (timestamp_diff < timelimit) && (timestamp_diff >= 0))
 			{
 				tcpseq_sequences[j].push_back({tcp_seq,timestamp,relative_id});
@@ -998,7 +998,7 @@ vector < vector< _tcp_sequence_build > >BaseTool::construct_tcp_sequences(vector
 			int out_of_order_count = 0;
 			for (int j = 0; j < p->size() - 1; j++)
 			{
-				auto diff = ((*p)[j + 1].tcp_sequence - (*p)[j].tcp_sequence);
+				u_short diff = ((*p)[j + 1].tcp_sequence - (*p)[j].tcp_sequence);
 				if (diff != 0 && diff != 1)
 				{
 					out_of_order_count++;
@@ -1078,7 +1078,7 @@ rst[i][j]=k
 	{
 		for (int j = 0; j < ipid_sequences.size(); j++)
 		{
-			auto interact = set_interact(tcp_sequences_relateive_id_set[i], ipid_sequences_relative_id_set[j]);
+			set<int> interact = set_interact(tcp_sequences_relateive_id_set[i], ipid_sequences_relative_id_set[j]);
 			if (interact.size() >= tcp_sequences_relateive_id_set[i].size()*0.5)
 			{
 				associate_rst[j].push_back(i);
@@ -1117,8 +1117,8 @@ vector< vector<_tcp_srcport_build> > BaseTool::construct_tcpsrcport_sequences(ve
 			for (int k = 0; k < tcp_srcport_sequences[j].size(); k++)
 			{
 
-				auto ipid_diff = abs(tcp_seq - tcp_srcport_sequences[j][k].srcport);//可以有一点乱序,但是不可以乱的太离谱
-				auto time_diff = (timestamp - tcp_srcport_sequences[j][k].timestamp);
+				u_short ipid_diff = abs(tcp_seq - tcp_srcport_sequences[j][k].srcport);//可以有一点乱序,但是不可以乱的太离谱
+				int time_diff = (timestamp - tcp_srcport_sequences[j][k].timestamp);
 				if (time_diff >= 0 && ipid_diff>=0 && ipid_diff< min_diff && ipid_diff < gaplimit &&time_diff < timelimit)
 				{
 					min_diff = ipid_diff;

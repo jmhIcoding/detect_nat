@@ -68,8 +68,8 @@ int main(int argc, char *argv[])
 	int count = 0;
 	while (true)
 	{
-		auto prst = pkt.cluster_raw_pakcets_online(0,timegap);
-		auto statics_feature = pkt.abstract_statics_feature(prst, inet_addr(ip), timegap, device_type);
+		map<unsigned int,vector< _packet_chunk_> > * prst = pkt.cluster_raw_pakcets_online(0,timegap);
+		vector<_packet_statics_feature> statics_feature = pkt.abstract_statics_feature(prst, inet_addr(ip), timegap, device_type);
 		for (int i = 0; i < statics_feature.size(); i++)
 		{
 			statics_feature[i].vectorize(fp);
