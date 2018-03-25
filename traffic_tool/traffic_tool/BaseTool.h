@@ -177,7 +177,7 @@ struct _packet_statics_feature
 		printf("idle time:%f \n", idle_time);
 		printf("idle time rate:%f \n", idle_time_rate);
 		printf("max busy time:%f \n", max_busy_time);
-		printf("std src port:%llf \n", std_srcport);
+		printf("std src port:%f \n", std_srcport);
 		printf("diff udp tcp:%f \n", diff_udp_tcp);
 		printf("****************************************************\n");
 
@@ -194,7 +194,7 @@ struct _packet_statics_feature
 		*/
 	{
 		memset(dst, 0, bufSize);
-		sprintf(dst, "%d %d %d %d %d %d %d %d %d %d %d %d %d %0.3f %0.3f %0.3f %0.4f %d %d %0.3llf\n", device_type,
+		sprintf(dst, "%d %d %d %d %d %d %d %d %d %d %d %d %d %f %f %f %f %d %d %f\n", device_type,
 			numInPkt, numInByte, numOutPkt, numOutByte,
 			numHTTP, numTCP, numUDP, numDNSReq,
 			numSYN, numRST, numFIN,
@@ -217,6 +217,7 @@ struct _packet_statics_feature
 		char buf[512];
 		_vectorize(buf);
 		printf("%s", buf);
+		#display();
 		fprintf(fp, buf);
 	}
 };
