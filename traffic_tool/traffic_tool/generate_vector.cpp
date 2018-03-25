@@ -3,12 +3,15 @@
 #include "BaseTool.h"
 #include <inaddr.h>
 #include <string.h>
-#if 1
+#if 0
 int main()
 {
-	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\nat_netflow\\03_13_21_50_09_10_172_16_30_34_windows_7.pcap");
-	char * ip = "172.16.30.34";
-	char device_type = 0x01;//02 nat;01 host
+	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\nat_netflow\\03_24\\03_24_2000mb.pcap");
+	char * ip = "172.16.30.153";
+	char filter[256] = { 0 };
+	sprintf(filter, "host %s ", ip);
+	pkt.setFilter(filter);
+	char device_type = ;//02 nat;01 host
 	auto prst = pkt.cluster_raw_pakcets();
 	auto statics_feature = pkt.abstract_statics_feature(prst, inet_addr(ip), 60 * 12, device_type);
 	char buffer[512];
