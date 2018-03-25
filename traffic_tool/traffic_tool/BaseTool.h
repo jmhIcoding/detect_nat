@@ -211,6 +211,7 @@ struct _packet_statics_feature
 	}
 };
 
+
 class BaseTool
 {
 public:
