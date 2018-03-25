@@ -591,7 +591,7 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 	}
 	return prst;
 }
-vector<_ipid_build> BaseTool::get_ipid_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+vector<_ipid_build> BaseTool::get_ipid_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip)
 //给定源ip,提取其中的ipid原始数据。过滤其中的出口报文
 {
 	vector<_ipid_build> ipids;
@@ -610,7 +610,7 @@ vector<_ipid_build> BaseTool::get_ipid_data(map<unsigned int, vector<_packet_chu
 	}
 	return ipids;
 }
-vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip)
 //给定源ip,提取其中的tcp_seq原始数据。过滤其中的出口报文
 {
 	vector<_tcp_sequence_build> tcp_seqs;
@@ -632,7 +632,7 @@ vector<_tcp_sequence_build> BaseTool::get_tcp_seq_data(map<unsigned int, vector<
 	}
 	return tcp_seqs;
 }
-vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip)
+vector<_tcp_srcport_build> BaseTool:: get_tcp_srcport_data(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip)
 //给定源ip,提取其中的tcp_srcport原始数据。过滤其中的tcp.syn==1出口报文
 {
 	vector<_tcp_srcport_build> tcp_srcports;
@@ -1045,7 +1045,7 @@ set<int> set_interact(const set<int>& s1, const set<int> & s2)
 	return rst_set;
 }
 
-vector< vector<int> >BaseTool::associate_ipidseq_tcpseqs(const vector< vector< _ipid_build>> & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences)
+vector< vector<int> >BaseTool::associate_ipidseq_tcpseqs(const vector< vector< _ipid_build> > & ipid_sequences, const vector< vector< _tcp_sequence_build> > & tcp_sequences)
 //将ipid序列和tcp_seq序列关联起来.关联的方法参见文献 counting nated hosts by observing tcp ip field behavior.
 /*
 关联的标准:
@@ -1056,7 +1056,7 @@ rst[i][j]=k
 	vector< vector<int> > associate_rst;
 	associate_rst.clear();
 	vector< set<int> > ipid_sequences_relative_id_set;//ipid_sequences的相对id集合
-	vector< set<int>> tcp_sequences_relateive_id_set;//tcp_sequences的相对id集合
+	vector< set<int> > tcp_sequences_relateive_id_set;//tcp_sequences的相对id集合
 	for (int i = 0; i < ipid_sequences.size(); i++)
 	{
 		associate_rst.push_back(vector<int>());
@@ -1088,7 +1088,7 @@ rst[i][j]=k
 	return associate_rst;
 }
 
-vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data)
+vector< vector<_tcp_srcport_build> > BaseTool::construct_tcpsrcport_sequences(vector<_tcp_srcport_build> & tcp_srcport_data)
 {
 	long timelimit = 512;
 	u_short gaplimit =256;
@@ -1151,7 +1151,7 @@ vector< vector<_tcp_srcport_build>> BaseTool::construct_tcpsrcport_sequences(vec
 	return rst;
 }
 
-vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned int, vector<_packet_chunk_>> * p_packets, unsigned int srcip, int timegap,unsigned char device_type)
+vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned int, vector<_packet_chunk_> > * p_packets, unsigned int srcip, int timegap,unsigned char device_type)
 //固定IP,提取与该IP相关的流量的统计特征,以timegap为一个间隔进行提取.若所给的p_packets包含多个timegap,那么返回结果也会包含多个vector<_packet_statics_feature>
 //默认timegap为一个小时
 {
