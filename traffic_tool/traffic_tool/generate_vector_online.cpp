@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "BaseTool.h"
+#ifdef _WIN32
 #include <inaddr.h>
+#endif
+#ifdef __linux__
+#include <arpa/inet.h>
+#endif
 #include <string.h>
 int str2int(char *str)
 {
@@ -15,11 +20,14 @@ int str2int(char *str)
 #if 1
 int main(int argc, char *argv[])
 {
+	for (int i = 0; i < argc; i++)
+	{
+		printf("%s\n", argv[i]);
+	}
 	if (argc != 6)
 	{
-		printf("usage:\
-			   			   				%s outfile(**.dat) ip_addr(172.16.30.29) device_type(nat or host) timegap(720) interface(eth2.2) \n", argv[0]);
-#ifdef WINDOWS
+		printf("usage:\n%s outfile(**.dat) ip_addr(172.16.30.29) device_type(nat or host) timegap(720) interface(eth2.2) \n", argv[0]);
+#ifdef _WIN32
 		system("pause");
 #endif
 		exit(-1);
@@ -67,7 +75,7 @@ int main(int argc, char *argv[])
 			statics_feature[i].vectorize(fp);
 			count++;
 		}
-		if (count % 20==0)
+		if (count % 5==0)
 		{
 			fflush(fp);
 		}
