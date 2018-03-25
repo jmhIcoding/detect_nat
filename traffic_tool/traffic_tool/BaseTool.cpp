@@ -536,6 +536,8 @@ map<unsigned int, vector < _packet_chunk_> >* BaseTool::cluster_raw_pakcets(pcap
 			packet_info.dstip = ih->saddr;
 			packet_info.flag = 0;
 			(*prst)[ih->daddr].push_back(packet_info);
+			//�ͷű���ռ�õ��ڴ�
+			free(pkt[0].data);
 		}
 		else
 		{
