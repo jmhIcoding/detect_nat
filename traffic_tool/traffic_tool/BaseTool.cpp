@@ -1285,8 +1285,8 @@ vector<_packet_statics_feature> BaseTool::abstract_statics_feature(map<unsigned 
 		{
 			timestamp_set.insert((*statics_features[i].timestamp_seq)[ii]);
 		}
-		statics_features[i].idle_time = (statics_features[i].end_timestamp - statics_features[i].start_timestamp) - timestamp_set.size();
-		statics_features[i].idle_time_rate = statics_features[i].idle_time / (0.00001+(statics_features[i].end_timestamp - statics_features[i].start_timestamp));
+		statics_features[i].idle_time = (statics_features[i].end_timestamp - statics_features[i].start_timestamp)*1.0 - timestamp_set.size();
+		statics_features[i].idle_time_rate = statics_features[i].idle_time / (0.00001+statics_features[i].end_timestamp - statics_features[i].start_timestamp);
 		//计算最大连续(差值小于等于2)忙碌时间,使用DP算法
 		int * count_array = (int *)malloc(sizeof(int)*(timestamp_set.size()));
 		int ii = 0;
