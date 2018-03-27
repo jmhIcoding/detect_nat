@@ -78,7 +78,7 @@ outputY=tf.add(predictY,0,name="outputY")
 #输出层,使用softmax函数
 
 loss=tf.reduce_mean(-tf.reduce_sum(InputY*tf.log(predictY)))
-tf.summary.histogram('loss',loss)
+#tf.summary.histogram('loss',loss)
 tf.summary.scalar('loss',loss)
 #残差函数loss设置为交叉熵
 learning_rate=1e-4
@@ -91,7 +91,7 @@ right_rate=tf.reduce_mean(tf.to_float(bool_pred))
 tf.summary.scalar("right rate",right_rate)
 Saver=tf.train.Saver()
 
-merge_op=tf.summary.merge_all()
+
 def load_model(sess,modelname="cnnmodel"):
     ckpt=tf.train.get_checkpoint_state(dir)
     if ckpt and ckpt.model_checkpoint_path:
@@ -105,7 +105,8 @@ def save_model(sess,modelname="cnnmodel"):
     Saver.save(sess,dir+modelname)
     print("saving model well.")
     print("*"*30)
-
+merge_op=None
+merge_op2=None
 with tf.Session() as sess:
     init =tf.global_variables_initializer()
     sess.run(init)
@@ -120,9 +121,12 @@ with tf.Session() as sess:
         if(step%batch_epoch==0):
             #测试一下
             test_vec,test_lab=data.next_test_batch(batchSize=30)
+            tf.summary.scalar('valid:rate',right_rate)
 
-            acc=sess.run(right_rate,{InputX:test_vec,InputY:test_lab})
-            tf.summary.scalar('valid:rate',acc)
+            if merge_op2==None:
+                merge_op2=tf.summary.merge_all()
+            acc,summary_=sess.run([right_rate,merge_op2],{InputX:test_vec,InputY:test_lab})
+            writer.add_summary(summary_,step)
             print({"!!!!!!!!!!!!!!testing:"+str(step):acc})
             accSum=accSum+acc
             sameStep+=1
@@ -137,7 +141,8 @@ with tf.Session() as sess:
             step=step+1
             continue
         train_vec,train_lab=data.next_train_batch(batchSize=30)
-
+        if merge_op==None:
+            merge_op=tf.summary.merge_all()
         l,op,summary=sess.run([loss,train_op,merge_op],feed_dict={InputX:train_vec,InputY:train_lab})
         #py,l,op=sess.run([predictY,loss,train_op])
         print(step,l)
