@@ -3,19 +3,19 @@
 #include "BaseTool.h"
 #include <inaddr.h>
 #include <string.h>
-#if 0
+#if 1
 int main()
 {
-	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\nat_netflow\\03_24\\03_24_2000mb.pcap");
-	char * ip = "172.16.30.153";
+	BaseTool pkt("C:\\Users\\dell\\Documents\\detect_nat\\pcaps\\nat_netflow\\0328\\lan_192_168_199_0.pcap");
+	char * ip = "192.168.199.153";
 	char filter[256] = { 0 };
 	sprintf(filter, "host %s ", ip);
 	pkt.setFilter(filter);
-	char device_type = ;//02 nat;01 host
+	char device_type = 0x01;//02 nat;01 host
 	auto prst = pkt.cluster_raw_pakcets();
 	auto statics_feature = pkt.abstract_statics_feature(prst, inet_addr(ip), 60 * 12, device_type);
 	char buffer[512];
-	char * filename = ".\\data\\vectorize_data.dat";
+	char * filename = ".\\data\\vectorize_data_03_28.dat";
 	FILE *fp = fopen(filename,"a");
 	for (int i = 0; i < statics_feature.size(); i++)
 	{
