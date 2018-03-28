@@ -55,7 +55,7 @@ class DataBase:
     def delete(self,cond):
         self.dataset.delete_many(cond)
 if __name__ == '__main__':
-    filereader= dat_filetool("vectorize_data.dat")
+    filereader= dat_filetool("./data/vectorize_data_03_28_mirror.dat")
     dataset=filereader.reader()
     db=DataBase(ip="127.0.0.1")
     db.insert(dataset)
