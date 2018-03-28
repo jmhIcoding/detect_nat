@@ -7,8 +7,10 @@ import  time
 import random
 from database import  dat_filetool
 from  BaseTool import *
+with open("normalize_parameter.data","r") as fp:
+    normalize_parameter=json.load(fp)
 raw_data=dat_filetool("valid.dat").reader()
-data=Preprocess(List=raw_data)
+data=Preprocess(List=raw_data,SuperParameter=normalize_parameter)
 dir ="./"
 modelname="cnnmodel"
 ckpt =tf.train.get_checkpoint_state(dir)

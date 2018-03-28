@@ -8,9 +8,10 @@ from database import  DataBase
 from database import  dat_filetool
 class Preprocess:
     db=None
-    def __init__(self,label=None,rate=0.3,List=None):
+    def __init__(self,label=None,rate=0.3,List=None,SuperParameter=None):
         self.label=label
         self.rate=rate
+        self.normalize_parameter=SuperParameter
         if List==None:
             Preprocess.db=DataBase(ip="127.0.0.1")
             self.List=Preprocess.db.get_dataset({})
@@ -125,30 +126,39 @@ class Preprocess:
         '''
 
         #do min-max tranformation.
-        '''
-        for j in range(0,veclen):
-            self.min.append(1e12)
-            self.max.append(-1e12)
-            for i in range(0,sampleSize):
-                if self.List[i]['vec'][j]<self.min[j]:
-                    self.min[j]=self.List[i]['vec'][j]
-                if self.List[i]['vec'][j]>self.max[j]:
-                    self.max[j]=self.List[i]['vec'][j]
+        if self.normalize_parameter==None:
+            for j in range(0,veclen):
+                self.min.append(1e12)
+                self.max.append(-1e12)
+                for i in range(0,sampleSize):
+                    if self.List[i]['vec'][j]<self.min[j]:
+                        self.min[j]=self.List[i]['vec'][j]
+                    if self.List[i]['vec'][j]>self.max[j]:
+                        self.max[j]=self.List[i]['vec'][j]
+
+            fp=open("normalize_parameter.data","w")
+            json.dump([self.min,self.max],fp)
+            print([self.min,self.max])
+            fp.close()
+        else:
+            self.min=self.normalize_parameter[0]
+            self.max=self.normalize_parameter[1]
+
         for each in self.List:
             each=each['vec']
             for j in range(0,veclen):
                 each[j]=(each[j]-self.min[j])/(self.max[j]+self.min[j]+0.000001)
             self.vec.append(each)
         return self.vec
-        '''
+
 
         #do not normalize
-
+        '''
         for each in self.List:
             each=each['vec']
             self.vec.append(each)
         return self.vec
-
+        '''
     def __labels(self):
         self.lab=[]
         i=0
