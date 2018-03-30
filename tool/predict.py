@@ -9,7 +9,7 @@ from database import  dat_filetool
 from  BaseTool import *
 with open("normalize_parameter.data","r") as fp:
     normalize_parameter=json.load(fp)
-raw_data=dat_filetool("valid.dat").reader()
+raw_data=dat_filetool("./data/valid_data.dat").reader()
 data=Preprocess(List=raw_data,SuperParameter=normalize_parameter)
 dir ="./"
 modelname="cnnmodel"
@@ -23,13 +23,24 @@ if ckpt and ckpt.model_checkpoint_path:
 else:
     raise("model load fail ")
 
-vec,lab=data.next_test_batch(batchSize=30)
+
 with tf.Session() as sess:
     saver.restore(sess,ckpt.model_checkpoint_path)
-    start=time.clock()
-    out=sess.run("outputY:0",feed_dict={"InputX:0":vec,"InputY:0":lab})
-    #print(out)
-    for i in range(len(lab)):
-        print("predict:%s, real:%s ."%(str(out[i]),str(lab[i])))
-    end=time.clock()
-    print(end-start)
+    while True:
+        print("please input something : s")
+        s=input()
+        print(s)
+        start=time.clock()
+        vec,lab=data.next_train_batch(100)
+        out=sess.run("outputY:0",feed_dict={"InputX:0":vec,"InputY:0":lab})
+        #print(out)
+        errorcnt=0
+        for i in range(len(lab)):
+            print("predict:%s, real:%s ."%(str(out[i]),str(lab[i])))
+            if (out[i][0]>out[i][1]) != (lab[i][0]>lab[i][1]):
+                errorcnt+=1
+                print(data.denormalize_minmax(vec[i],normalize_parameter))
+
+        end=time.clock()
+        print(end-start)
+        print("error:%d / %d "%(errorcnt,len(lab)))
