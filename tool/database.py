@@ -54,8 +54,20 @@ class DataBase:
         return  rst
     def delete(self,cond):
         self.dataset.delete_many(cond)
+    def data_clean(self):
+        #数据清洗,把一些明显标注错误的样本删除或者修正过来
+        data=self.get_dataset()
+
+        for each in data:
+            if each['label']=='host' and each['vec'][-2]>1:
+                    self.delete(cond={'_id':each['_id']})
+                    sample={}
+                    sample.setdefault('label','nat')
+                    sample.setdefault('vec',each['vec'])
+                    sample.setdefault('timestamp',each['timestamp'])
+                    self.insert(sample)
 if __name__ == '__main__':
-    filereader= dat_filetool("./data/vectorize_data_03_28_mirror.dat")
+    filereader= dat_filetool("./data/vectorize_data_03_29_mirror.dat")
     dataset=filereader.reader()
     db=DataBase(ip="127.0.0.1")
     db.insert(dataset)

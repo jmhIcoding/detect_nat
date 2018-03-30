@@ -4,6 +4,7 @@ import numpy as np
 import random
 import  tensorflow as tf
 import  random
+import  json
 from database import  DataBase
 from database import  dat_filetool
 class Preprocess:
@@ -136,22 +137,19 @@ class Preprocess:
                     if self.List[i]['vec'][j]>self.max[j]:
                         self.max[j]=self.List[i]['vec'][j]
 
-            fp=open("normalize_parameter.data","w")
-            json.dump([self.min,self.max],fp)
-            print([self.min,self.max])
-            fp.close()
+            with open("normalize_parameter.data","w") as fp:
+                json.dump([self.min,self.max],fp)
+                #print([self.min,self.max])
+                #fp.close()
         else:
             self.min=self.normalize_parameter[0]
             self.max=self.normalize_parameter[1]
 
         for each in self.List:
             each=each['vec']
-            for j in range(0,veclen):
-                each[j]=(each[j]-self.min[j])/(self.max[j]+self.min[j]+0.000001)
+            each=self.normalize_minmax(each,[self.min,self.max])
             self.vec.append(each)
         return self.vec
-
-
         #do not normalize
         '''
         for each in self.List:
@@ -159,6 +157,23 @@ class Preprocess:
             self.vec.append(each)
         return self.vec
         '''
+
+    def normalize_minmax(self,vec,normalize_parameter):
+        #归一化
+        min=normalize_parameter[0]
+        max=normalize_parameter[1]
+        for j in range(0,len(vec)):
+            vec[j]=(vec[j]-min[j])/(max[j]+min[j]+0.000001)
+        return vec
+
+    def denormalize_minmax(self,vec,normalize_parameter):
+        #逆归一化
+        min=normalize_parameter[0]
+        max=normalize_parameter[1]
+        for j in range(0,len(vec)):
+            vec[j]=vec[j]*(max[j]+min[j]+0.000001)+min[j]
+        return vec
+
     def __labels(self):
         self.lab=[]
         i=0
