@@ -3,7 +3,7 @@ __author__ = 'jmh081701'
 from BaseTool import  *
 import  tensorflow as tf
 import math
-
+import json
 
 '''
 The input vector should be a shape of [InputColumn,?]
@@ -140,7 +140,7 @@ with tf.Session() as sess:
                 save_model(sess)
             step=step+1
             continue
-        train_vec,train_lab=data.next_train_batch(batchSize=30)
+        train_vec,train_lab=data.next_train_batch(batchSize=200)
         if merge_op==None:
             merge_op=tf.summary.merge_all()
         l,op,summary=sess.run([loss,train_op,merge_op],feed_dict={InputX:train_vec,InputY:train_lab})
