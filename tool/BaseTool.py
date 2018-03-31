@@ -69,8 +69,8 @@ class Preprocess:
             v=self.__train[0][index]
             l=self.__train[1][index]
 
-            vec.append(v)
-            lab.append(l)
+            vec.append(v.copy())
+            lab.append(l.copy())
         return vec,lab
 
     def next_test_batch(self,batchSize=100):
@@ -164,6 +164,9 @@ class Preprocess:
         max=normalize_parameter[1]
         for j in range(0,len(vec)):
             vec[j]=(vec[j]-min[j])/(max[j]+min[j]+0.000001)
+            if (vec[j]>1e3):
+                print(vec)
+                raise "Error input vector."
         return vec
 
     def denormalize_minmax(self,vec,normalize_parameter):
