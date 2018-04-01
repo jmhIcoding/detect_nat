@@ -23,6 +23,8 @@ class Predict(object):
         self.sess=tf.Session()
         self.saver.restore(self.sess,self.ckpt.model_checkpoint_path)
         self.defaultVec=np.zeros(shape=[1,self.explen])
+        self.min=self.normalize_parameter[0]
+        self.max=self.normalize_parameter[1]
 
     def __PADDING(self,vector):
         rst=vector
@@ -30,11 +32,45 @@ class Predict(object):
             rst.append(0.0)
         return rst
 
-    def __vectorize(self,List):
-        pass
+    def normalize_minmax(self,vec,normalize_parameter):
+        #归一化
+        min=normalize_parameter[0]
+        max=normalize_parameter[1]
+        for j in range(0,len(vec)):
+            vec[j]=(vec[j]-min[j])/(max[j]+min[j]+0.000001)
+            if (vec[j]>1e3):
+                print(vec)
+                raise "Error input vector."
+        return vec
+    def vectorize(self,List):
+        rst=list()
+        vec=list()
+        lab=list()
+        for eachLine in List:
+            line=eachLine.split(seq=' ')
+            sample={'ip':"192.168.1.1",'label':'0','vec':[]}
+            sample['label']=line[1]
+            sample['ip']=line[0]
+            for each in range(2,len(line)):
+                if i in [16]:
+                    continue
+                    #过滤 diff udp-tcp 因为区分度
+                sample['vec'].append(float(each[i]))
+            sample['vec']=self.normalize_parameter(sample['vec'],self.normalize_parameter)
+            vec.append(sample['vec'].copy())
+            lab.append([0.,0.])
+            sample['vec']=None
+            rst.append(sample.copy())
+        return rst,vec,lab
 
-    def predict(self,inputJson):
+    def predict(self,inputList):
         try:
-            pass
+            info,vec,lab=self.vectorize(inputList[0:-1])
+            out=sess.run("outputY:0",feed_dict={"InputX:0":vec,"InputY:0":lab})
+            outstring =""
+            for i in range(0,len(info)):
+                outstring=info[i][ip]+" "+ out[i][1]+"\n"
+            return outstring
         except:
-            raise Exception("Error input Json.")
+            raise Exception("Error input List.")
+

@@ -1,3 +1,4 @@
+#coding:utf-8
 __author__ = 'dell'
 from  flask import  Flask
 from  flask import jsonify
@@ -14,9 +15,10 @@ request format:
 '''
 @app.route("/api/predict",methods=["POST"])
 def predicts():
-    req=request.json()
+    req=request.json
+    print(req)
     for each in req:
         print(each)
         print(req[each])
-    return "OK"
+    return jsonify({"status":"OK"})
 app.run("0.0.0.0",port=9090)
