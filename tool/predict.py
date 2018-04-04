@@ -31,7 +31,8 @@ with tf.Session() as sess:
         s=input()
         print(s)
         start=time.clock()
-        vec,lab=data.next_train_batch(100)
+        vec=data.train_vectors().copy()
+        lab=data.train_lables().copy()
         out=sess.run("outputY:0",feed_dict={"InputX:0":vec,"InputY:0":lab})
         #print(out)
         errorcnt=0
@@ -39,6 +40,8 @@ with tf.Session() as sess:
             print("predict:%s, real:%s ."%(str(out[i]),str(lab[i])))
             if (out[i][0]>out[i][1]) != (lab[i][0]>lab[i][1]):
                 errorcnt+=1
+                print(vec[i])
+
                 print(data.denormalize_minmax(vec[i],normalize_parameter))
 
         end=time.clock()
