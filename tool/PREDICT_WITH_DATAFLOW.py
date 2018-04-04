@@ -71,13 +71,13 @@ class Predict(object):
             out=self.sess.run("outputY:0",feed_dict={"InputX:0":vec,"InputY:0":lab})
             outstring =""
             for i in range(0,len(info)):
-                outstring+=info[i]['ip']+" "+str( out[i][1])+";"
+                outstring+=info[i]['ip']+" "+str(2 if (out[i][1] > out[i][0]) else 1)+";"
             return outstring
         except:
             raise Exception("Error input List.")
 if __name__ == '__main__':
     cnnmodel = Predict(modeldir="./")
-    inputList="192.168.1.1 2 51691 77924749 50641 4770915 84444 100244 1651 640 2963 576 1515 653 2.000000 720.000000 0.002782 0.963462 0 2 14823.428863;192.168.30.34 2 115585 185072803 88677 5977789 178816 202565 1688 611 1925 605 1407 319 -1.000000 720.000000 -0.001391 0.983428 0 3 23074.247645;"
+    inputList="192.168.1.1 2 51691 77924749 50641 4770915 84444 100244 1651 640 2963 576 1515 653 122.000000 720.000000 0.002782 0.963462 0 1 18230.428863;192.168.30.34 2 115585 185072803 88677 5977789 178816 202565 1688 611 1925 605 1407 319 -1.000000 720.000000 -0.001391 0.983428 0 3 23074.247645;"
     inputList=inputList.split(';')
     out=cnnmodel.predict(inputList)
     print(out)
