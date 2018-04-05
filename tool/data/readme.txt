@@ -1,7 +1,10 @@
-本目录用于放置日常采集的流量样本向量.
-文件命名格式:
-训练集:
+#coding:utf-8
+锟斤拷目录锟斤拷锟节凤拷锟斤拷锟秸筹拷锟缴硷拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷.
+锟侥硷拷锟斤拷锟斤拷锟斤拷式:
+训锟斤拷锟斤拷:
 vectorize_data_mm_dd_mirror.dat
 vectorize_data_mm_dd_3407.dat
-验证集:
+锟斤拷证锟斤拷:
 valid_data.dat
+
+p2p_dat.dat:p2p娴嬭瘯鏍锋湰
